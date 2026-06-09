@@ -145,6 +145,10 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
+function psQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 function toWslPath(distro, winPath) {
   if (process.platform !== "win32") {
     return winPath;
@@ -169,18 +173,38 @@ function findPowerShell() {
 function copyWindowsLaunchers(ctfRoot = "") {
   ensureWindows();
   const sourceDir = path.join(PAYLOAD, "windows-launchers");
+  const cmdLauncher = path.join(os.homedir(), "ctf-codex-wsl.cmd");
   const targets = [
     ["ctf-codex-wsl.ps1", path.join(os.homedir(), "ctf-codex-wsl.ps1")],
-    ["ctf-codex-wsl.cmd", path.join(os.homedir(), "ctf-codex-wsl.cmd")]
+    ["ctf-codex-wsl.cmd", cmdLauncher]
   ];
   for (const [name, target] of targets) {
     fs.copyFileSync(path.join(sourceDir, name), target);
     console.log(`[+] wrote ${target}`);
   }
+  createDesktopShortcut(cmdLauncher);
   if (ctfRoot) {
     const config = { ...readConfig(), ctfRoot };
     writeConfig(config);
   }
+}
+
+function createDesktopShortcut(cmdLauncher) {
+  const ps = findPowerShell();
+  const script = [
+    "$desktop = [Environment]::GetFolderPath('Desktop')",
+    "if (-not $desktop) { throw 'Cannot resolve Desktop path.' }",
+    "$shortcutPath = Join-Path $desktop 'CTF Codex WSL.lnk'",
+    "$shell = New-Object -ComObject WScript.Shell",
+    "$shortcut = $shell.CreateShortcut($shortcutPath)",
+    `$shortcut.TargetPath = ${psQuote(cmdLauncher)}`,
+    "$shortcut.WorkingDirectory = [Environment]::GetFolderPath('UserProfile')",
+    "$shortcut.Description = 'Launch CTF Codex Toolkit for Kali WSL'",
+    "$shortcut.Save()",
+    "Write-Output $shortcutPath"
+  ].join("; ");
+  const shortcutPath = run(ps, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], { capture: true });
+  console.log(`[+] wrote ${shortcutPath}`);
 }
 
 function install(args) {

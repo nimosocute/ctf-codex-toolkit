@@ -101,6 +101,8 @@ ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root <path>
 - `/opt/codex-ctf-hooks/*`
 - `/usr/local/bin/ctf-codex`
 
+It also writes Windows launchers to `%USERPROFILE%\ctf-codex-wsl.ps1` and `%USERPROFILE%\ctf-codex-wsl.cmd`, then creates or updates a Desktop shortcut named `CTF Codex WSL.lnk` pointing to the CMD launcher. The Desktop path is resolved from Windows, so redirected Desktop folders such as OneDrive Desktop are supported.
+
 It does **not** copy secrets, sessions, logs, cookies, `.env`, private keys, runtime SQLite state, or Codex provider configuration.
 
 ## Skill Credits and Updates
