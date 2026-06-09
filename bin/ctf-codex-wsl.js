@@ -9,6 +9,7 @@ const childProcess = require("node:child_process");
 const ROOT = path.resolve(__dirname, "..");
 const PAYLOAD = path.join(ROOT, "payload");
 const DEFAULT_DISTRO = process.env.CTF_CODEX_WSL_DISTRO || "kali-linux";
+const DEFAULT_SKILLS_SOURCE = "https://github.com/ljagiello/ctf-skills.git";
 
 function usage() {
   console.log(`ctf-codex-toolkit
@@ -17,6 +18,7 @@ Usage:
   ctf-codex-toolkit setup [--distro kali-linux] [--no-browser-arm] [--skip-health]
   ctf-codex-toolkit install [--distro kali-linux] [--no-browser-arm]
   ctf-codex-toolkit health [--distro kali-linux]
+  ctf-codex-toolkit update-skills [--distro kali-linux] [--source https://github.com/ljagiello/ctf-skills.git]
   ctf-codex-toolkit install-launchers
   ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root D:\\CTF]
 
@@ -207,6 +209,48 @@ function health(args) {
   runWsl(distro, ["bash", "-lc", "python3 ~/.codex/tools/ctf_health_check.py"]);
 }
 
+function updateSkills(args) {
+  ensureWindows();
+  const distro = getOption(args, "--distro", DEFAULT_DISTRO);
+  const source = getOption(args, "--source", DEFAULT_SKILLS_SOURCE);
+
+  if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?$/.test(source)) {
+    fail("Refusing unsupported skill source URL. Use an HTTPS GitHub repository URL.");
+  }
+
+  console.log(`[+] Updating CTF skills in WSL distro: ${distro}`);
+  console.log(`[+] Source: ${source}`);
+
+  const updateScript = `
+set -euo pipefail
+source_url=${shellQuote(source)}
+tmp="$(mktemp -d)"
+cleanup() { rm -rf "$tmp"; }
+trap cleanup EXIT
+git clone --depth 1 "$source_url" "$tmp/src"
+mkdir -p "$HOME/.codex/skills"
+count=0
+while IFS= read -r skill_file; do
+  skill_dir="$(dirname "$skill_file")"
+  name="$(basename "$skill_dir")"
+  case "$name" in
+    ctf-*|solve-challenge|ctf-writeup)
+      rm -rf "$HOME/.codex/skills/$name"
+      cp -a "$skill_dir" "$HOME/.codex/skills/$name"
+      count=$((count + 1))
+      printf '[+] updated skill: %s\\n' "$name"
+      ;;
+  esac
+done < <(find "$tmp/src" -mindepth 1 -maxdepth 3 -name SKILL.md -type f | sort)
+if [ "$count" -eq 0 ]; then
+  echo "[!] No matching CTF skill directories found in source repository." >&2
+  exit 1
+fi
+printf '[+] Updated %s skill directories.\\n' "$count"
+`;
+  runWsl(distro, ["bash", "-lc", updateScript]);
+}
+
 function setup(args) {
   const installArgs = removeFlags(args, ["--skip-health"]);
   const skipHealth = hasFlag(args, "--skip-health");
@@ -244,6 +288,7 @@ function main() {
   if (cmd === "setup") return setup(rest);
   if (cmd === "install") return install(rest);
   if (cmd === "health") return health(rest);
+  if (cmd === "update-skills") return updateSkills(rest);
   if (cmd === "install-launchers") return copyWindowsLaunchers();
   if (cmd === "version" || cmd === "--version") {
     const pkg = require(path.join(ROOT, "package.json"));

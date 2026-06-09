@@ -75,6 +75,7 @@ The launcher also honors `CTF_CODEX_WSL_DISTRO`, `CTF_CODEX_ROOT`, `CTF_ROOT`, a
 ctf-codex-toolkit setup [--distro kali-linux] [--no-browser-arm] [--skip-health]
 ctf-codex-toolkit install [--distro kali-linux] [--no-browser-arm]
 ctf-codex-toolkit health [--distro kali-linux]
+ctf-codex-toolkit update-skills [--distro kali-linux] [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
 ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root D:\CTF]
 ```
@@ -95,6 +96,54 @@ ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root D:\CTF
 - `/usr/local/bin/ctf-codex`
 
 It does **not** copy secrets, sessions, logs, cookies, `.env`, private keys, runtime SQLite state, or Codex provider configuration.
+
+## Skill Credits and Updates
+
+The bundled CTF skill directories are derived from [ljagiello/ctf-skills](https://github.com/ljagiello/ctf-skills.git). Credit for the upstream CTF skill content belongs to that project and its contributors.
+
+This toolkit packages those skills together with the Windows/Kali WSL launcher, guard hooks, health check, snippets, and CTF workflow files so they can be installed in one command.
+
+See `THIRD_PARTY_NOTICES.md` for the packaged third-party skill notice.
+
+Automatic skill update from the upstream repository:
+
+```powershell
+ctf-codex-toolkit update-skills
+```
+
+Automatic update from a fork or compatible GitHub repo:
+
+```powershell
+ctf-codex-toolkit update-skills --source https://github.com/<owner>/<repo>.git
+```
+
+The updater runs inside Kali WSL, clones the source repository, finds skill directories containing `SKILL.md`, and refreshes matching CTF skill directories under:
+
+```text
+~/.codex/skills/
+```
+
+It updates directories named `ctf-*`, `solve-challenge`, and `ctf-writeup`. It does not delete unrelated user skills.
+
+Manual update inside Kali WSL:
+
+```bash
+tmp="$(mktemp -d)"
+git clone --depth 1 https://github.com/ljagiello/ctf-skills.git "$tmp/ctf-skills"
+mkdir -p ~/.codex/skills
+find "$tmp/ctf-skills" -mindepth 1 -maxdepth 3 -name SKILL.md -type f -print |
+while read -r skill_file; do
+  skill_dir="$(dirname "$skill_file")"
+  name="$(basename "$skill_dir")"
+  case "$name" in
+    ctf-*|solve-challenge|ctf-writeup)
+      rm -rf "$HOME/.codex/skills/$name"
+      cp -a "$skill_dir" "$HOME/.codex/skills/$name"
+      ;;
+  esac
+done
+rm -rf "$tmp"
+```
 
 ## Browser Arm
 
