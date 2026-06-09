@@ -10,17 +10,18 @@ const ROOT = path.resolve(__dirname, "..");
 const PAYLOAD = path.join(ROOT, "payload");
 const DEFAULT_DISTRO = process.env.CTF_CODEX_WSL_DISTRO || "kali-linux";
 const DEFAULT_SKILLS_SOURCE = "https://github.com/ljagiello/ctf-skills.git";
+const CONFIG_PATH = path.join(os.homedir(), ".ctf-codex-toolkit.json");
 
 function usage() {
   console.log(`ctf-codex-toolkit
 
 Usage:
-  ctf-codex-toolkit setup [--distro kali-linux] [--no-browser-arm] [--skip-health]
-  ctf-codex-toolkit install [--distro kali-linux] [--no-browser-arm]
+  ctf-codex-toolkit setup [--distro kali-linux] [--ctf-root <path>] [--no-browser-arm] [--skip-health]
+  ctf-codex-toolkit install [--distro kali-linux] [--ctf-root <path>] [--no-browser-arm]
   ctf-codex-toolkit health [--distro kali-linux]
   ctf-codex-toolkit update-skills [--distro kali-linux] [--source https://github.com/ljagiello/ctf-skills.git]
   ctf-codex-toolkit install-launchers
-  ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root D:\\CTF]
+  ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root <path>]
 
 Aliases:
   ctf-codex-workflow
@@ -68,6 +69,43 @@ function removeOptions(args, names) {
 
 function removeFlags(args, names) {
   return args.filter((arg) => !names.some((name) => arg === name || arg.startsWith(`${name}=`)));
+}
+
+function readConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeConfig(config) {
+  fs.writeFileSync(CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  console.log(`[+] wrote ${CONFIG_PATH}`);
+}
+
+function promptLine(question, fallback) {
+  fs.writeSync(1, `${question}${fallback ? ` [${fallback}]` : ""}: `);
+  const buffer = Buffer.alloc(4096);
+  const bytes = fs.readSync(0, buffer, 0, buffer.length, null);
+  const answer = buffer.toString("utf8", 0, bytes).trim();
+  return answer || fallback;
+}
+
+function defaultCtfRoot() {
+  return path.join(os.homedir(), "ctf-workspaces");
+}
+
+function resolveCtfRoot(args, options = {}) {
+  const explicit = getOption(args, "--ctf-root", "");
+  const envRoot = process.env.CTF_CODEX_ROOT || process.env.CTF_ROOT || "";
+  const config = readConfig();
+  let ctfRoot = explicit || envRoot || config.ctfRoot || "";
+  if (!ctfRoot && options.prompt) {
+    ctfRoot = promptLine("CTF workspace root on Windows", defaultCtfRoot());
+  }
+  if (!ctfRoot) return "";
+  return path.resolve(ctfRoot);
 }
 
 function run(command, args, options = {}) {
@@ -128,7 +166,7 @@ function findPowerShell() {
   fail("Cannot find pwsh.exe or powershell.exe.");
 }
 
-function copyWindowsLaunchers() {
+function copyWindowsLaunchers(ctfRoot = "") {
   ensureWindows();
   const sourceDir = path.join(PAYLOAD, "windows-launchers");
   const targets = [
@@ -139,21 +177,29 @@ function copyWindowsLaunchers() {
     fs.copyFileSync(path.join(sourceDir, name), target);
     console.log(`[+] wrote ${target}`);
   }
+  if (ctfRoot) {
+    const config = { ...readConfig(), ctfRoot };
+    writeConfig(config);
+  }
 }
 
 function install(args) {
   ensureWindows();
   const distro = getOption(args, "--distro", DEFAULT_DISTRO);
+  const ctfRoot = resolveCtfRoot(args, { prompt: true });
   const withBrowserArm = !hasFlag(args, "--no-browser-arm");
   const payloadWsl = shellQuote(toWslPath(distro, PAYLOAD));
+  const ctfRootWsl = shellQuote(toWslPath(distro, ctfRoot));
 
   console.log(`[+] Installing CTF Codex payload into WSL distro: ${distro}`);
+  console.log(`[+] CTF workspace root: ${ctfRoot}`);
 
   const userInstall = `
 set -euo pipefail
 payload=${payloadWsl}
+ctf_root=${ctfRootWsl}
 mkdir -p "$HOME/.codex/tools/browser_arm" "$HOME/.codex/ctf-snippets" "$HOME/.codex/skills" "$HOME/.codex/hooks"
-cp "$payload/home-codex/AGENTS.md" "$HOME/.codex/AGENTS.md"
+sed "s|{{CTF_ROOT}}|$ctf_root|g" "$payload/home-codex/AGENTS.md" > "$HOME/.codex/AGENTS.md"
 cp "$payload/home-codex/ctf-checklists.md" "$HOME/.codex/ctf-checklists.md"
 cp "$payload/home-codex/tools_inventory.md" "$HOME/.codex/tools_inventory.md"
 cp "$payload/home-codex/tools/ctf_health_check.py" "$HOME/.codex/tools/ctf_health_check.py"
@@ -199,7 +245,7 @@ PY
     console.log("[=] Skipped Browser Arm venv install (--no-browser-arm).");
   }
 
-  copyWindowsLaunchers();
+  copyWindowsLaunchers(ctfRoot);
   console.log("[+] Install complete.");
 }
 
@@ -270,7 +316,7 @@ function launch(args) {
   const ps = findPowerShell();
   const launcher = path.join(PAYLOAD, "windows-launchers", "ctf-codex-wsl.ps1");
   const distro = getOption(args, "--distro", "");
-  const ctfRoot = getOption(args, "--ctf-root", "");
+  const ctfRoot = resolveCtfRoot(args);
   const psArgs = removeOptions(args, ["--distro", "--ctf-root"]);
   if (distro) psArgs.push("-Distro", distro);
   if (ctfRoot) psArgs.push("-CtfRoot", ctfRoot);
@@ -289,7 +335,7 @@ function main() {
   if (cmd === "install") return install(rest);
   if (cmd === "health") return health(rest);
   if (cmd === "update-skills") return updateSkills(rest);
-  if (cmd === "install-launchers") return copyWindowsLaunchers();
+  if (cmd === "install-launchers") return copyWindowsLaunchers(resolveCtfRoot(rest, { prompt: true }));
   if (cmd === "version" || cmd === "--version") {
     const pkg = require(path.join(ROOT, "package.json"));
     console.log(pkg.version);

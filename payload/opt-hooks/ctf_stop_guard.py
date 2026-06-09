@@ -6,7 +6,8 @@ import re
 import sys
 from pathlib import Path
 
-WORK_ROOT = "/mnt/d/ctf/_work/"
+CTF_ROOT = (os.environ.get("CTF_ROOT") or os.environ.get("CTF_CODEX_ROOT") or str(Path.home() / "ctf-workspaces")).replace("\\", "/").rstrip("/")
+WORK_ROOT = (os.environ.get("CTF_WORK_ROOT") or f"{CTF_ROOT}/_work").replace("\\", "/").rstrip("/").lower() + "/"
 STATE_DIR = Path.home() / ".codex" / "ctf-evals"
 STATE_PATH = STATE_DIR / "stop_state.json"
 NO_FINDING_LIMIT = 3

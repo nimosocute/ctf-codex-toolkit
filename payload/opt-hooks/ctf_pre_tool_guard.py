@@ -9,9 +9,11 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-WORK_ROOT_LOWER = "/mnt/d/ctf/_work/"
-WORK_ROOT_DISPLAY = "/mnt/d/CTF/_work/"
-CTF_ROOT_LOWER = "/mnt/d/ctf"
+CTF_ROOT_DISPLAY = os.environ.get("CTF_ROOT") or os.environ.get("CTF_CODEX_ROOT") or str(Path.home() / "ctf-workspaces")
+CTF_ROOT_DISPLAY = CTF_ROOT_DISPLAY.replace("\\", "/").rstrip("/")
+CTF_ROOT_LOWER = CTF_ROOT_DISPLAY.lower()
+WORK_ROOT_DISPLAY = (os.environ.get("CTF_WORK_ROOT") or f"{CTF_ROOT_DISPLAY}/_work").replace("\\", "/").rstrip("/") + "/"
+WORK_ROOT_LOWER = WORK_ROOT_DISPLAY.lower()
 DEFAULT_TIMEOUT_SECONDS = 120
 MAX_SCRIPT_BYTES = 512_000
 MAX_CANDIDATE_ATTEMPTS = 10_000
@@ -129,7 +131,7 @@ def ensure_path_inside_workspace(path: str, cwd: Path, root_lower: str, where: s
     p = workspace_path(path, cwd)
     lower = as_lower_path(p)
     if lower == CTF_ROOT_LOWER or lower.startswith(CTF_ROOT_LOWER + "/") and not lower.startswith(WORK_ROOT_LOWER):
-        deny(f"Blocked: {where} targets /mnt/d/CTF outside _work: {path}")
+        deny(f"Blocked: {where} targets {CTF_ROOT_DISPLAY} outside _work: {path}")
     if not (lower == root_lower or lower.startswith(root_lower + "/")):
         deny(f"Blocked: {where} outside current challenge workspace: {path}")
 
@@ -673,9 +675,10 @@ def guard_bash(command: str, cwd: Path, root_lower: str, depth: int = 0, timeout
         regex_block(command, CONDITIONAL_LOOP_PATTERNS, "command", "candidate-loop command")
     guard_secrets(command, cwd, root_lower)
 
-    root_write_pattern = r">\s*/mnt/d/ctf(/|\s|$)|\b(cp|mv|unzip|tar|7z)\b.*\s/mnt/d/ctf(/|\s|$)"
+    escaped_root = re.escape(CTF_ROOT_LOWER)
+    root_write_pattern = rf">\s*{escaped_root}(/|\s|$)|\b(cp|mv|unzip|tar|7z)\b.*\s{escaped_root}(/|\s|$)"
     if re.search(root_write_pattern, command.lower(), re.IGNORECASE | re.DOTALL):
-        deny("Blocked: write/extract target appears to be /mnt/d/CTF root or outside _work.")
+        deny(f"Blocked: write/extract target appears to be {CTF_ROOT_DISPLAY} root or outside _work.")
 
     if depth > 3:
         return

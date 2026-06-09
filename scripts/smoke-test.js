@@ -31,7 +31,10 @@ const forbiddenPathParts = [
 const forbiddenText = [
   ["127.0.0.1", ":", "20128"].join(""),
   ["cx", "/", "gpt"].join(""),
-  ["gpt-", "5.5"].join("")
+  ["gpt-", "5.5"].join(""),
+  ["D:", "\\", "CTF"].join(""),
+  ["/mnt", "/d/", "CTF"].join(""),
+  ["/mnt", "/d/", "ctf"].join("")
 ];
 
 const forbiddenRegex = [

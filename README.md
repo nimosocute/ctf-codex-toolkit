@@ -2,7 +2,7 @@
 
 CTF-focused Codex CLI setup for Kali WSL, packaged for npm.
 
-This package installs a managed CTF policy, CTF skills/checklists/snippets, guard hooks, Browser Arm helper files, and Windows launchers for per-challenge workspaces under `D:\CTF\_work\<challenge>`.
+This package installs a managed CTF policy, CTF skills/checklists/snippets, guard hooks, Browser Arm helper files, and Windows launchers for per-challenge workspaces under your chosen CTF root, using `<ctf-root>\_work\<challenge>`.
 
 Primary command: `ctf-codex-toolkit`.
 
@@ -67,17 +67,23 @@ Use another challenge root:
 ctf-codex-toolkit <challenge_name> --ctf-root C:\CTF
 ```
 
-The launcher also honors `CTF_CODEX_WSL_DISTRO`, `CTF_CODEX_ROOT`, `CTF_ROOT`, and `CODEX_BIN`.
+During `setup` or `install`, the toolkit asks for a Windows CTF workspace root and stores it in `%USERPROFILE%\.ctf-codex-toolkit.json`. Press Enter to use the default `%USERPROFILE%\ctf-workspaces`, or pass `--ctf-root` to make setup non-interactive:
+
+```powershell
+ctf-codex-toolkit setup --ctf-root C:\CTF
+```
+
+The launcher also honors `CTF_CODEX_WSL_DISTRO`, `CTF_CODEX_ROOT`, `CTF_ROOT`, and `CODEX_BIN`. Explicit `--ctf-root` wins over environment variables and saved config.
 
 ## Commands
 
 ```text
-ctf-codex-toolkit setup [--distro kali-linux] [--no-browser-arm] [--skip-health]
-ctf-codex-toolkit install [--distro kali-linux] [--no-browser-arm]
+ctf-codex-toolkit setup [--distro kali-linux] [--ctf-root <path>] [--no-browser-arm] [--skip-health]
+ctf-codex-toolkit install [--distro kali-linux] [--ctf-root <path>] [--no-browser-arm]
 ctf-codex-toolkit health [--distro kali-linux]
 ctf-codex-toolkit update-skills [--distro kali-linux] [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
-ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root D:\CTF]
+ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root <path>]
 ```
 
 `setup` runs `install` and then `health`. Use `--skip-health` when optional tools are not ready yet.

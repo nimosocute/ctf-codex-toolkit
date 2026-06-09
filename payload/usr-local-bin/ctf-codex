@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CTF_ROOT="${CTF_ROOT:-/mnt/d/CTF}"
+CTF_ROOT="${CTF_ROOT:-$HOME/ctf-workspaces}"
 CODEX_BIN="${CODEX_BIN:-codex}"
 export PATH="$HOME/.npm-global/bin:/opt/oss-cad-suite/bin:$PATH"
 
@@ -13,13 +13,13 @@ This directory is the CTF root.
 
 ## Root Safety
 
-- Treat `/mnt/d/CTF` as a clean root directory.
-- Do not create, modify, delete, extract, patch, or generate output directly in `/mnt/d/CTF`.
+- Treat `{{CTF_ROOT}}` as a clean root directory.
+- Do not create, modify, delete, extract, patch, or generate output directly in `{{CTF_ROOT}}`.
 - Before any file-writing, extraction, patching, or deletion, run `pwd`.
-- If `pwd` is `/mnt/d/CTF`, first create and enter a challenge workspace.
-- Workspace format: `/mnt/d/CTF/_work/<challenge_name>/`.
+- If `pwd` is `{{CTF_ROOT}}`, first create and enter a challenge workspace.
+- Workspace format: `{{CTF_ROOT}}/_work/<challenge_name>/`.
 - Copy input files into the workspace before analyzing them.
-- Never run `rm`, `mv`, `unzip`, `tar`, patching, or bulk-output commands from `/mnt/d/CTF`.
+- Never run `rm`, `mv`, `unzip`, `tar`, patching, or bulk-output commands from `{{CTF_ROOT}}`.
 
 ## Workspace Rules
 
@@ -65,6 +65,7 @@ Return:
 2. Exact source path / endpoint
 3. Minimal proof commands
 EOF
+perl -0pi -e 's|\{\{CTF_ROOT\}\}|$ENV{CTF_ROOT}|g' AGENTS.md
 }
 
 main() {
