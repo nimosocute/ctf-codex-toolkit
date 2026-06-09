@@ -1,6 +1,6 @@
 {
   "name": "ctf-codex-toolkit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CTF-focused Codex toolkit with skills, guard hooks, health checks, and Windows/Kali WSL launcher.",
   "license": "MIT",
   "type": "commonjs",

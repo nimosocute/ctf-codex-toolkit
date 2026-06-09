@@ -14,7 +14,7 @@ Compatibility aliases: `ctf-codex-workflow`, `ctf-codex-wsl`, `ctf-codex`.
 
 ## Install From npm
 
-One-command setup after npm publish:
+One-command setup from npm:
 
 ```powershell
 npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
@@ -175,10 +175,10 @@ ctf-codex-toolkit setup --no-browser-arm
 
 ## Supply Chain Notes
 
-The preferred install path after npm publication is a versioned npm package:
+The preferred install path is a versioned npm package:
 
 ```powershell
-npm exec --yes --package ctf-codex-toolkit@0.1.0 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.1 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form is convenient while the package is not yet published, but it executes the current repository content:
@@ -189,7 +189,7 @@ npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolki
 
 Review the repository, pin to a trusted tag or commit when possible, and prefer signed/versioned releases for shared environments. CI runs `npm run smoke` and `npm pack --dry-run` on pushes and pull requests.
 
-Contributor and publishing notes live in `CONTRIBUTING.md`.
+Contributor and release notes live in `CONTRIBUTING.md`.
 
 ## Safety Model
 

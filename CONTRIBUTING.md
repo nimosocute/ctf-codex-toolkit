@@ -13,7 +13,7 @@ npm pack --dry-run
 
 The GitHub Actions workflow runs the same checks on pushes and pull requests.
 
-## Release Notes
+## Release Process
 
 The package is designed to be installed by users from npm or GitHub without copying provider configuration or secrets.
 
@@ -30,4 +30,3 @@ If the unscoped package name is unavailable on npm, publish a scoped package and
 ## Third-Party Content
 
 Keep `THIRD_PARTY_NOTICES.md` up to date when bundled skills, tools, snippets, or browser automation dependencies are added or changed.
-
