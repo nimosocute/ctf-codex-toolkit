@@ -21,13 +21,13 @@ Or install the command globally:
 ```powershell
 npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
-ctf-codex-toolkit baby_bof
+ctf-codex-toolkit <challenge_name>
 ```
 
 Resume the last session for a challenge:
 
 ```powershell
-ctf-codex-toolkit baby_bof -Resume
+ctf-codex-toolkit <challenge_name> -Resume
 ```
 
 ## Install From GitHub
@@ -58,13 +58,13 @@ Use another distro name:
 
 ```powershell
 ctf-codex-toolkit setup --distro kali-linux
-ctf-codex-toolkit baby_bof --distro kali-linux
+ctf-codex-toolkit <challenge_name> --distro kali-linux
 ```
 
 Use another challenge root:
 
 ```powershell
-ctf-codex-toolkit baby_bof --ctf-root C:\CTF
+ctf-codex-toolkit <challenge_name> --ctf-root C:\CTF
 ```
 
 The launcher also honors `CTF_CODEX_WSL_DISTRO`, `CTF_CODEX_ROOT`, `CTF_ROOT`, and `CODEX_BIN`.

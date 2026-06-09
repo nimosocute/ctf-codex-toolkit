@@ -30,8 +30,8 @@ Aliases:
 Examples:
   npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolkit setup
   ctf-codex-toolkit setup
-  ctf-codex-toolkit baby_bof
-  ctf-codex-toolkit baby_bof -Resume
+  ctf-codex-toolkit <challenge_name>
+  ctf-codex-toolkit <challenge_name> -Resume
 `);
 }
 
