@@ -1,0 +1,16 @@
+* text=auto
+
+.gitattributes text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.sage text eol=lf
+*.toml text eol=lf
+*.cpp text eol=lf
+
+payload/opt-hooks/ctf-command-guard text eol=lf
+payload/usr-local-bin/ctf-codex text eol=lf
+
+*.ps1 text eol=crlf
+*.cmd text eol=crlf

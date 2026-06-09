@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CTF_ROOT="${CTF_ROOT:-/mnt/d/CTF}"
+CODEX_BIN="${CODEX_BIN:-codex}"
+export PATH="$HOME/.npm-global/bin:/opt/oss-cad-suite/bin:$PATH"
+
+make_policy() {
+cat > AGENTS.md <<'EOF'
+# CTF Agent Policy
+
+This directory is the CTF root.
+
+## Root Safety
+
+- Treat `/mnt/d/CTF` as a clean root directory.
+- Do not create, modify, delete, extract, patch, or generate output directly in `/mnt/d/CTF`.
+- Before any file-writing, extraction, patching, or deletion, run `pwd`.
+- If `pwd` is `/mnt/d/CTF`, first create and enter a challenge workspace.
+- Workspace format: `/mnt/d/CTF/_work/<challenge_name>/`.
+- Copy input files into the workspace before analyzing them.
+- Never run `rm`, `mv`, `unzip`, `tar`, patching, or bulk-output commands from `/mnt/d/CTF`.
+
+## Workspace Rules
+
+Inside the challenge workspace:
+- Preserve original files.
+- Put temp files in `work/`.
+- Put extracted files in `extracts/`.
+- Put proof artifacts in `evidence/`.
+
+## Solve Workflow
+
+1. Triage inputs first.
+2. Prefer fast deterministic checks before brute force.
+3. Pivot only when new evidence supports it.
+4. Avoid repeating similar checks without new findings.
+5. Verify the flag before final answer.
+
+## Human Handoff
+
+Stop and report when:
+- A playable/viewable artifact is extracted: video, image, PDF, audio, archive, QR, spectrogram.
+- The next step would require bulk OCR, mass frame extraction, brute force, or long-running scans.
+- Similar checks repeat without new evidence.
+- The user says: stop, wait, extract only, let me check, do not continue.
+
+When stopping, report only:
+1. What was found
+2. Artifact path
+3. How to inspect it
+4. Suggested next command if automation should continue
+
+## Limits
+
+- Do not install packages with sudo unless explicitly allowed.
+- Do not overwrite original challenge files.
+- Do not run destructive commands.
+- Do not continue solving after a human handoff point.
+
+## Final Answer
+
+Return:
+1. Flag
+2. Exact source path / endpoint
+3. Minimal proof commands
+EOF
+}
+
+main() {
+  mkdir -p "$CTF_ROOT"
+
+  cd "$CTF_ROOT"
+
+  if [ ! -f AGENTS.md ]; then
+    make_policy
+  fi
+
+  echo "[+] CTF root: $CTF_ROOT"
+  echo "[+] Policy:   $CTF_ROOT/AGENTS.md"
+  echo "[+] Agent must create workspace before writing/extracting"
+  echo "[+] Starting Codex"
+
+  "$CODEX_BIN"
+}
+
+main "$@"

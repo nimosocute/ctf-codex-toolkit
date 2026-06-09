@@ -1,0 +1,35 @@
+{
+  "name": "ctf-codex-toolkit",
+  "version": "0.1.0",
+  "description": "CTF-focused Codex toolkit with skills, guard hooks, health checks, and Windows/Kali WSL launcher.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "ctf-codex-toolkit": "bin/ctf-codex-wsl.js",
+    "ctf-codex-workflow": "bin/ctf-codex-wsl.js",
+    "ctf-codex-wsl": "bin/ctf-codex-wsl.js",
+    "ctf-codex": "bin/ctf-codex-wsl.js"
+  },
+  "files": [
+    "bin/",
+    "payload/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "smoke": "node scripts/smoke-test.js",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "codex",
+    "ctf",
+    "toolkit",
+    "workflow",
+    "wsl",
+    "kali",
+    "security"
+  ]
+}

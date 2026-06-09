@@ -1,0 +1,13 @@
+#!/bin/bash
+set -euo pipefail
+
+cmd="$*"
+
+case "$cmd" in
+  *"xargs -P"*|*"parallel"*|*"hashcat"*|*"john"*|*"hydra"*|*"medusa"*|*"ncrack"*|*"sqlmap"*|*"crunch"*|*"cewl"* )
+    echo "Blocked: high-risk automated attack command requires explicit user approval." >&2
+    exit 126
+    ;;
+esac
+
+exec "$@"
