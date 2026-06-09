@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, "..");
 const PAYLOAD = path.join(ROOT, "payload");
 const DEFAULT_DISTRO = process.env.CTF_CODEX_WSL_DISTRO || "kali-linux";
 const DEFAULT_SKILLS_SOURCE = "https://github.com/ljagiello/ctf-skills.git";
+const CLOAKBROWSER_VERSION = "0.3.31";
 const CONFIG_PATH = path.join(os.homedir(), ".ctf-codex-toolkit.json");
 
 function usage() {
@@ -258,7 +259,7 @@ chown root:root /opt/codex-ctf-hooks/ctf_pre_tool_guard.py /opt/codex-ctf-hooks/
     const browserInstall = `
 set -euo pipefail
 python3 -m venv "$HOME/.codex/tools/browser_arm/.venv"
-"$HOME/.codex/tools/browser_arm/.venv/bin/python" -m pip install --upgrade pip cloakbrowser
+"$HOME/.codex/tools/browser_arm/.venv/bin/python" -m pip install --upgrade pip "cloakbrowser==${CLOAKBROWSER_VERSION}"
 "$HOME/.codex/tools/browser_arm/.venv/bin/python" - <<'PY'
 from cloakbrowser import ensure_binary
 print(ensure_binary())

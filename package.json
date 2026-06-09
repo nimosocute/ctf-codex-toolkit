@@ -4,6 +4,14 @@
   "description": "CTF-focused Codex toolkit with skills, guard hooks, health checks, and Windows/Kali WSL launcher.",
   "license": "MIT",
   "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nimosocute/ctf-codex-toolkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nimosocute/ctf-codex-toolkit/issues"
+  },
+  "homepage": "https://github.com/nimosocute/ctf-codex-toolkit#readme",
   "bin": {
     "ctf-codex-toolkit": "bin/ctf-codex-wsl.js",
     "ctf-codex-workflow": "bin/ctf-codex-wsl.js",
@@ -14,6 +22,7 @@
     "bin/",
     "payload/",
     "README.md",
+    "CONTRIBUTING.md",
     "THIRD_PARTY_NOTICES.md",
     "LICENSE"
   ],

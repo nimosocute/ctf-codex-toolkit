@@ -1,5 +1,9 @@
 # ctf-codex-toolkit
 
+[![npm version](https://img.shields.io/npm/v/ctf-codex-toolkit.svg)](https://www.npmjs.com/package/ctf-codex-toolkit)
+[![CI](https://github.com/nimosocute/ctf-codex-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/nimosocute/ctf-codex-toolkit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 CTF-focused Codex CLI setup for Kali WSL, packaged for npm.
 
 This package installs a managed CTF policy, CTF skills/checklists/snippets, guard hooks, Browser Arm helper files, and Windows launchers for per-challenge workspaces under your chosen CTF root, using `<ctf-root>\_work\<challenge>`.
@@ -161,40 +165,37 @@ By default, `ctf-codex-toolkit setup` and `ctf-codex-toolkit install` create an 
 ~/.codex/tools/browser_arm/.venv
 ```
 
-and installs `cloakbrowser` there. Use `--no-browser-arm` to skip that download.
+and installs `cloakbrowser==0.3.31` there. CloakBrowser is a MIT-licensed browser automation project from [CloakHQ/CloakBrowser](https://github.com/CloakHQ/CloakBrowser). This toolkit uses it only for the optional Browser Arm helper, which gives Codex a local browser-control path for CTF web challenges that need JavaScript, DOM inspection, storage inspection, console logs, or network logs.
 
-## Publishing
-
-Before publishing, rename the package if needed:
+CloakBrowser is installed inside the isolated Browser Arm venv, not globally. On first use, CloakBrowser may download and cache its Chromium binary; upstream documents this as an automatic binary download. Use `--no-browser-arm` to skip this dependency entirely:
 
 ```powershell
-cd outputs\ctf-codex-toolkit
-npm run smoke
-npm pack --dry-run
-git init
-git add .
-git commit -m "Initial CTF Codex Toolkit package"
-git branch -M main
-git remote add origin https://github.com/<your-user>/ctf-codex-toolkit.git
-git push -u origin main
-npm publish --access public
+ctf-codex-toolkit setup --no-browser-arm
 ```
 
-If `ctf-codex-toolkit` is already taken on npm, change `"name"` in `package.json` to a scoped package, for example:
+## Supply Chain Notes
 
-```json
-"name": "@your-scope/ctf-codex-toolkit"
-```
-
-Then install with:
+The preferred install path after npm publication is a versioned npm package:
 
 ```powershell
-npm install -g @your-scope/ctf-codex-toolkit
+npm exec --yes --package ctf-codex-toolkit@0.1.0 -- ctf-codex-toolkit setup
 ```
+
+The GitHub install form is convenient while the package is not yet published, but it executes the current repository content:
+
+```powershell
+npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolkit setup
+```
+
+Review the repository, pin to a trusted tag or commit when possible, and prefer signed/versioned releases for shared environments. CI runs `npm run smoke` and `npm pack --dry-run` on pushes and pull requests.
+
+Contributor and publishing notes live in `CONTRIBUTING.md`.
 
 ## Safety Model
 
-The pre-tool guard blocks high-risk automated attack commands and broad candidate searches, while allowing small deterministic loops. Current regression checks include:
+The pre-tool guard blocks high-risk automated attack commands and broad candidate searches, while allowing small deterministic loops. This is defense-in-depth for common mistakes; it is not a sandbox, not a security boundary, and not a substitute for running Codex inside a scoped CTF workspace.
+
+Current regression checks include:
 
 - `range(1<<20)` blocked
 - `range(10**8)` blocked

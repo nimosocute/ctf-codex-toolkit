@@ -6,6 +6,9 @@ const childProcess = require("node:child_process");
 const root = path.resolve(__dirname, "..");
 const required = [
   "bin/ctf-codex-wsl.js",
+  ".github/workflows/ci.yml",
+  "CONTRIBUTING.md",
+  "THIRD_PARTY_NOTICES.md",
   "payload/home-codex/AGENTS.md",
   "payload/home-codex/ctf-checklists.md",
   "payload/home-codex/tools_inventory.md",
