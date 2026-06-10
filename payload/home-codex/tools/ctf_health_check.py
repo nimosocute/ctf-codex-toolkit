@@ -92,7 +92,7 @@ def clean_output(text: str) -> str:
 def run_shell(command: str, timeout: int = 20) -> tuple[bool, str]:
     try:
         proc = subprocess.run(
-            command,
+            f"set -o pipefail; {command}",
             shell=True,
             executable="/bin/bash",
             env=BASE_ENV,
@@ -132,7 +132,10 @@ def check_browser_arm() -> tuple[bool, str]:
         page.goto("data:text/html,<title>ok</title>")
         title = page.title()
     except Exception as exc:
-        return False, f"cloakbrowser {cloakbrowser.__version__}; headless launch failed: {type(exc).__name__}: {exc}"
+        output = f"cloakbrowser {cloakbrowser.__version__}; headless launch failed: {type(exc).__name__}: {exc}"
+        if "libnspr4.so" in output:
+            output += "; missing Chromium system deps: install libnspr4/libnss3 or run the Playwright Chromium deps installer"
+        return False, output
     finally:
         if browser is not None:
             try:

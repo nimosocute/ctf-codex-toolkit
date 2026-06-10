@@ -355,6 +355,12 @@ CloakBrowser is a MIT-licensed browser automation project from [CloakHQ/CloakBro
 
 CloakBrowser is installed inside the isolated Browser Arm venv, not globally. On first use, CloakBrowser may download and cache its Chromium binary.
 
+Minimal Kali installs may not include all Chromium shared libraries. If `ctf-codex-toolkit health` reports a Browser Arm error such as `libnspr4.so: cannot open shared object file`, install the browser runtime dependencies:
+
+```bash
+sudo apt install -y libnspr4 libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libxkbcommon0
+```
+
 Skip this dependency:
 
 ```bash
