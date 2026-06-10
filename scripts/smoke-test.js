@@ -118,7 +118,11 @@ if (!windowsLauncher.includes("function Repair-CompactWindowsPath") || !windowsL
   console.error("Windows launcher must repair compact Windows paths and fallback-convert WSL paths");
   process.exit(1);
 }
-if (!windowsLauncher.includes("\":Users\"") || !windowsLauncher.includes("/mnt/$drive/$tail")) {
+if (
+  !windowsLauncher.includes("\":Users\"") ||
+  !windowsLauncher.includes("$normalizedPath = Resolve-WindowsFullPath $WindowsPath") ||
+  !windowsLauncher.includes("/mnt/$drive/$tail")
+) {
   console.error("Windows launcher path repair/fallback markers are missing");
   process.exit(1);
 }

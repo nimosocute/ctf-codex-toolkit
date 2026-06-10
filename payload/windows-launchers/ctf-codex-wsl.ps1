@@ -50,9 +50,21 @@ function Repair-CompactWindowsPath {
         return $value
     }
 
+    $users = @()
     if ($env:USERPROFILE -match '^([A-Za-z]):\\Users\\([^\\]+)$') {
-        $drive = $Matches[1]
-        $user = $Matches[2]
+        $users += @{ Drive = $Matches[1]; Name = $Matches[2] }
+    }
+    if ($HOME -match '^([A-Za-z]):\\Users\\([^\\]+)$') {
+        $users += @{ Drive = $Matches[1]; Name = $Matches[2] }
+    }
+    if ($env:USERNAME) {
+        $drive = if ($value -match '^([A-Za-z]):') { $Matches[1] } else { "C" }
+        $users += @{ Drive = $drive; Name = $env:USERNAME }
+    }
+
+    foreach ($candidate in $users) {
+        $drive = $candidate.Drive
+        $user = $candidate.Name
         $compactProfile = $drive + ":Users" + $user
         if ($value.StartsWith($compactProfile) -and $value.Length -gt $compactProfile.Length) {
             $tail = $value.Substring($compactProfile.Length)
@@ -93,18 +105,30 @@ function ConvertTo-WslPath {
         [Parameter(Mandatory = $true)][string]$Distro
     )
 
-    $converted = @(& wsl.exe -d $Distro -- wslpath -a "$WindowsPath" 2>$null)
-    if ($converted.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($converted[0])) {
-        return $converted[0].Trim()
-    }
+    $normalizedPath = Resolve-WindowsFullPath $WindowsPath
 
-    if ($WindowsPath -match '^([A-Za-z]):\\(.*)$') {
+    if ($normalizedPath -match '^([A-Za-z]):\\(.*)$') {
         $drive = $Matches[1].ToLowerInvariant()
         $tail = $Matches[2] -replace '\\', '/'
         return "/mnt/$drive/$tail"
     }
 
-    Write-Error "Cannot convert workspace path to WSL path: $WindowsPath"
+    $converted = @()
+    try {
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $converted = @(& wsl.exe -d $Distro -- wslpath -a "$normalizedPath" 2>$null)
+    } catch {
+        $converted = @()
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    if ($converted.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($converted[0])) {
+        return $converted[0].Trim()
+    }
+
+    Write-Error "Cannot convert workspace path to WSL path: $normalizedPath"
     exit 1
 }
 
