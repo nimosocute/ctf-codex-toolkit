@@ -14,7 +14,8 @@ The toolkit is designed for this workflow:
 ```text
 Windows terminal
   -> npm package command
-  -> Kali WSL installer
+  -> existing Kali WSL distro
+  -> toolkit installer runs inside Kali
   -> ~/.codex CTF payload
   -> ctf-codex <challenge>
   -> isolated workspace at <ctf-root>\_work\<challenge>
@@ -95,9 +96,11 @@ npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolki
 ## Requirements
 
 - Windows with WSL2
-- Kali WSL distro, default name `kali-linux`
+- Existing Kali WSL distro, default name `kali-linux`
 - Node.js/npm on Windows
 - Codex CLI installed inside Kali WSL and available as `codex`
+
+This package does not install WSL, install Kali Linux, or install Codex CLI. It configures an existing Kali WSL environment for CTF-focused Codex workflows.
 
 Use a non-default WSL distro:
 
@@ -140,8 +143,9 @@ Explicit CLI flags take precedence over environment variables and saved config.
 flowchart LR
     A["PowerShell / CMD"] --> B["ctf-codex-toolkit"]
     B --> C["WSL: kali-linux"]
-    C --> D["Install managed Codex CTF payload"]
-    D --> E["Run health checks"]
+    C --> D["Run toolkit installer inside Kali"]
+    D --> K["Install managed Codex CTF payload"]
+    K --> E["Run health checks"]
     E --> F["Create Windows launchers"]
     F --> G["Desktop shortcut"]
     B --> H["Start challenge"]
