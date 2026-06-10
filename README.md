@@ -5,6 +5,10 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-339933.svg)](package.json)
 
+[English](#english) | [Tiếng Việt](#tieng-viet)
+
+## English
+
 CTF-focused Codex setup for Kali Linux and Kali WSL.
 
 `ctf-codex-toolkit` is installed from a Kali shell, either on native Kali or inside Kali WSL. The installer auto-detects the environment:
@@ -37,7 +41,6 @@ Kali shell
 - [Requirements](#requirements)
 - [How It Works](#how-it-works)
 - [Command Reference](#command-reference)
-- [Vietnamese Quick Guide](#vietnamese-quick-guide)
 - [Installed Files](#installed-files)
 - [Workspace Model](#workspace-model)
 - [Skill Credits and Updates](#skill-credits-and-updates)
@@ -122,67 +125,41 @@ npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolki
 
 ## Daily Usage
 
-Most users do not need a global npm install. The recommended pattern is:
+On Kali WSL, use the Windows shortcut created by setup:
 
-1. Run setup or update with `npm exec`.
-2. Start daily challenge sessions from the installed launcher.
-3. Use `npm exec` again only when updating or repairing the toolkit.
-
-Check the published latest version:
-
-```bash
-npm view ctf-codex-toolkit version
+```text
+Desktop\CTF Codex WSL.lnk
 ```
 
-Check the version installed by setup:
+When prompted, type a challenge name such as:
 
-```bash
-cat ~/.ctf-codex-toolkit.json
+```text
+bachcube
 ```
 
-Check the Windows WSL launcher version:
+The launcher finds or creates:
 
-```bash
-grep 'LauncherVersion' /mnt/c/Users/$USER/ctf-codex-wsl.ps1 2>/dev/null || \
-grep 'LauncherVersion' /mnt/c/Users/*/ctf-codex-wsl.ps1
+```text
+<ctf-root>/_work/bachcube
 ```
 
-Update the Kali payload and Windows WSL shortcut without reinstalling the full tool inventory:
+It then starts Codex inside that workspace. To continue an earlier Codex conversation, use Codex's built-in command inside the Codex session:
+
+```text
+/resume
+```
+
+On native Kali, the equivalent command is:
+
+```bash
+ctf-codex bachcube
+```
+
+To update the Kali payload and Windows shortcut later:
 
 ```bash
 npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools
 ```
-
-Start a challenge from Kali native or Kali WSL:
-
-```bash
-ctf-codex <challenge>
-```
-
-Resume the last session for that challenge:
-
-```bash
-ctf-codex <challenge> -Resume
-```
-
-Run a health check after changing tools, PATH, Node.js, Python, Codex, or WSL:
-
-```bash
-npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit health
-```
-
-If you want the `ctf-codex-toolkit` command available directly, install it globally inside Kali:
-
-```bash
-npm config set prefix ~/.npm-global
-mkdir -p ~/.npm-global/bin
-echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-npm install -g ctf-codex-toolkit
-ctf-codex-toolkit --version
-```
-
-This global install affects only Kali/WSL when `which npm` points to a Linux path such as `/usr/bin/npm`. It does not update Windows npm unless you run npm from Windows PowerShell/CMD.
 
 ## Requirements
 
@@ -338,125 +315,6 @@ Update available! <current> -> <latest>
 Choosing update refreshes the toolkit payload, launchers, and saved toolkit version in Kali WSL, then continues launching the challenge. It skips the full CTF tool inventory install; run `ctf-codex-toolkit install-tools` when you want to repair or reinstall tools. The Windows launcher has its own embedded `LauncherVersion`, so stale shortcut files are detected even if the WSL config already contains a newer toolkit version.
 
 If Codex fails before opening, the Windows launcher keeps the console open and prints the WSL exit code. Common causes are Codex CLI not installed inside Kali, `codex` missing from the WSL `PATH`, or a bad WSL distro name.
-
-## Vietnamese Quick Guide
-
-### Cai dat / cap nhat
-
-Chay trong Kali native hoac Kali WSL:
-
-```bash
-npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
-```
-
-Neu chi muon cap nhat payload va shortcut, khong cai lai bo tool CTF nang:
-
-```bash
-npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools
-```
-
-Lenh `npm exec` chi tai package tam thoi de chay setup. Sau khi setup xong, toolkit da duoc ghi vao:
-
-```text
-~/.codex/
-~/.ctf-codex-toolkit.json
-/opt/codex-ctf-hooks/
-/usr/local/bin/ctf-codex
-```
-
-Neu dang o Kali WSL, setup cung ghi shortcut phia Windows:
-
-```text
-%USERPROFILE%\ctf-codex-wsl.ps1
-%USERPROFILE%\ctf-codex-wsl.cmd
-Desktop\CTF Codex WSL.lnk
-```
-
-### Su dung hang ngay
-
-Mo challenge moi:
-
-```bash
-ctf-codex ten_challenge
-```
-
-Resume challenge cu:
-
-```bash
-ctf-codex ten_challenge -Resume
-```
-
-Workspace mac dinh nam o:
-
-```text
-~/ctf-workspaces/_work/ten_challenge
-```
-
-Tren Windows shortcut, nhap ten challenge khi duoc hoi. Launcher se tao workspace, tao `AGENTS.md`, cai guard trong workspace, roi mo Codex ben trong Kali WSL.
-
-### Kiem tra version
-
-Version moi nhat tren npm:
-
-```bash
-npm view ctf-codex-toolkit version
-```
-
-Version da setup trong Kali:
-
-```bash
-cat ~/.ctf-codex-toolkit.json
-```
-
-Version cua Windows WSL shortcut:
-
-```bash
-grep 'LauncherVersion' /mnt/c/Users/*/ctf-codex-wsl.ps1
-```
-
-Neu `ctf-codex-toolkit --version` bao `command not found` thi khong sao. Dieu do chi co nghia la ban dung `npm exec`, chua cai CLI global. Shortcut va `ctf-codex` van co the dung neu setup da thanh cong.
-
-### Global install la gi?
-
-Global install chi can neu ban muon go truc tiep:
-
-```bash
-ctf-codex-toolkit --version
-ctf-codex-toolkit health
-ctf-codex-toolkit setup
-```
-
-Neu can cai global trong Kali ma gap loi `EACCES`, doi npm prefix ve thu muc user:
-
-```bash
-npm config set prefix ~/.npm-global
-mkdir -p ~/.npm-global/bin
-echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-npm install -g ctf-codex-toolkit
-```
-
-Global install trong Kali WSL khong anh huong npm Windows, mien la `which npm` tro den Linux path nhu `/usr/bin/npm`.
-
-### Loi hay gap
-
-Neu WSL bao Codex dang tro den `/mnt/c/.../codex`, nghia la no dang bat nham Codex Windows. Cai Codex CLI trong Kali:
-
-```bash
-npm config set prefix ~/.npm-global
-mkdir -p ~/.npm-global/bin
-echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-npm install -g @openai/codex
-which codex
-codex --version
-```
-
-Ket qua dung khong duoc la `/mnt/c/...`; nen la duong dan Linux nhu:
-
-```text
-/home/<user>/.npm-global/bin/codex
-```
 
 ## Installed Files
 
@@ -665,5 +523,554 @@ npm pack --dry-run
 ```
 
 ## License
+
+[MIT](LICENSE)
+
+<a id="tieng-viet"></a>
+
+## Tiếng Việt
+
+`ctf-codex-toolkit` là bộ cài đặt Codex tập trung cho CTF trên Kali Linux và Kali WSL.
+
+Toolkit được cài từ shell Kali, chạy được trên Kali native hoặc Kali WSL. Trình cài đặt tự nhận diện môi trường:
+
+- Kali native: chỉ cài phần toolkit trong Linux/Kali.
+- Kali WSL: cài cùng toolkit trong Kali và tạo thêm launcher/shortcut phía Windows.
+
+Toolkit cài môi trường Codex CTF được quản lý vào Kali: skills, checklist, snippets, guard hooks, health checks, danh sách công cụ CTF cần thiết, Browser Arm tùy chọn, và launcher theo từng challenge.
+
+Luồng sử dụng chính:
+
+```text
+Kali shell
+  -> npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
+  -> tự nhận diện Kali native hay Kali WSL
+  -> ~/.codex CTF payload
+  -> công cụ CTF từ tools_inventory.md
+  -> /opt/codex-ctf-hooks guard hooks
+  -> chỉ WSL: Windows launcher + Desktop shortcut
+  -> nhập tên challenge
+  -> ~/ctf-workspaces/_work/<challenge>
+  -> Codex chạy bên trong Kali
+```
+
+### Mục lục
+
+- [Toolkit cung cấp gì](#toolkit-cung-cap-gi)
+- [Cài đặt](#cai-dat)
+- [Sử dụng hằng ngày](#su-dung-hang-ngay)
+- [Yêu cầu](#yeu-cau)
+- [Cách hoạt động](#cach-hoat-dong)
+- [Lệnh thường dùng](#lenh-thuong-dung)
+- [File được cài](#file-duoc-cai)
+- [Mô hình workspace](#mo-hinh-workspace)
+- [Cập nhật skills](#cap-nhat-skills)
+- [Browser Arm](#browser-arm-1)
+- [Health checks](#health-checks-1)
+- [Mô hình an toàn](#mo-hinh-an-toan)
+- [Ghi chú supply chain](#ghi-chu-supply-chain)
+- [Đóng góp](#dong-gop)
+- [License](#license-1)
+
+<a id="toolkit-cung-cap-gi"></a>
+
+### Toolkit cung cấp gì
+
+Repo này đóng gói các phần cần thiết để chạy Codex như một trợ lý CTF bên trong Kali.
+
+| Nhóm | Nội dung |
+| --- | --- |
+| Chính sách Codex CTF | `AGENTS.md` được quản lý, định tuyến category, hướng dẫn workflow |
+| Skills | Web, pwn, crypto, reverse, forensics, OSINT, malware, AI/ML, misc, solve dispatcher, writeup |
+| Guard hooks | Kiểm tra trước khi chạy tool để chặn scan rộng, lệnh rủi ro cao, vòng lặp candidate quá lớn |
+| Health checks | Kiểm tra nhanh payload, tools, provider readiness, Browser Arm, hooks |
+| CTF tools | Bootstrap các tool trong `tools_inventory.md` |
+| Browser support | Browser Arm tùy chọn, dùng venv riêng với `cloakbrowser==0.3.31` |
+| Launchers | `ctf-codex-toolkit <challenge>` và `/usr/local/bin/ctf-codex <challenge>` |
+| WSL integration | Khi chạy trong Kali WSL, tạo Windows `.ps1`/`.cmd` launcher và Desktop shortcut |
+| Workspace layout | Mỗi challenge có thư mục riêng dưới CTF root |
+
+Toolkit không kèm cấu hình provider của Codex. Người dùng giữ config OpenAI Codex hoặc config provider khác bên ngoài repo này.
+
+<a id="cai-dat"></a>
+
+### Cài đặt
+
+Tất cả lệnh bên dưới chạy trong Kali Linux hoặc Kali WSL.
+
+Cài dependency cơ bản nếu thiếu:
+
+```bash
+sudo apt update
+sudo apt install -y nodejs npm python3 python3-venv git sudo
+```
+
+Kiểm tra Codex CLI có sẵn trong Kali:
+
+```bash
+codex --version
+```
+
+Chạy setup:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
+```
+
+Cài theo version cố định:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@0.1.22 -- ctf-codex-toolkit setup
+```
+
+Nếu muốn cài CLI global trong Kali:
+
+```bash
+npm install -g ctf-codex-toolkit
+ctf-codex-toolkit setup
+```
+
+Mở một challenge:
+
+```bash
+ctf-codex-toolkit my_challenge
+```
+
+Resume session cuối của challenge:
+
+```bash
+ctf-codex-toolkit my_challenge -Resume
+```
+
+Cài trực tiếp từ GitHub khi test thay đổi chưa release:
+
+```bash
+npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolkit setup
+```
+
+<a id="su-dung-hang-ngay"></a>
+
+### Sử dụng hằng ngày
+
+Trên Kali WSL, dùng shortcut Windows được tạo bởi setup:
+
+```text
+Desktop\CTF Codex WSL.lnk
+```
+
+Khi được hỏi, nhập tên bài, ví dụ:
+
+```text
+bachcube
+```
+
+Launcher sẽ tìm hoặc tạo:
+
+```text
+<ctf-root>/_work/bachcube
+```
+
+Sau đó launcher mở Codex ngay trong workspace đó. Nếu muốn quay lại đoạn chat trước trong Codex, dùng lệnh có sẵn của Codex trong phiên Codex:
+
+```text
+/resume
+```
+
+Trên Kali native, lệnh tương đương là:
+
+```bash
+ctf-codex bachcube
+```
+
+Khi cần cập nhật payload Kali và Windows shortcut:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools
+```
+
+<a id="yeu-cau"></a>
+
+### Yêu cầu
+
+- Kali Linux hoặc Kali WSL
+- Node.js/npm trong Kali
+- Python 3 và `python3-venv`
+- Git
+- `sudo` để cài `/opt/codex-ctf-hooks/*` và `/usr/local/bin/ctf-codex`
+- Codex CLI đã cài trong Kali và gọi được bằng lệnh `codex`
+
+Package này không cài Kali Linux, WSL, hoặc Codex CLI. Nó chỉ cấu hình môi trường Kali đã có để dùng Codex cho CTF.
+
+Khi setup chạy trong Kali WSL và Windows interop hoạt động, nó cũng ghi:
+
+```text
+%USERPROFILE%\ctf-codex-wsl.ps1
+%USERPROFILE%\ctf-codex-wsl.cmd
+Desktop\CTF Codex WSL.lnk
+```
+
+Kali native sẽ bỏ qua các file Windows này.
+
+Dùng CTF root khác mặc định:
+
+```bash
+ctf-codex-toolkit setup --ctf-root ~/ctf
+ctf-codex-toolkit my_challenge --ctf-root ~/ctf
+```
+
+Trong lúc `setup` hoặc `install`, CLI hỏi nơi đặt CTF workspace root và lưu vào:
+
+```text
+~/.ctf-codex-toolkit.json
+```
+
+Nhấn Enter để dùng mặc định:
+
+```text
+~/ctf-workspaces
+```
+
+Launcher cũng đọc:
+
+- `CTF_CODEX_ROOT`
+- `CTF_ROOT`
+- `CODEX_BIN`
+
+CLI flags có độ ưu tiên cao hơn environment variables và config đã lưu.
+
+<a id="cach-hoat-dong"></a>
+
+### Cách hoạt động
+
+```mermaid
+flowchart LR
+    A["Kali shell"] --> B["npm exec ctf-codex-toolkit setup"]
+    B --> C{"Kali WSL?"}
+    C -->|No| D["Cài Kali-native toolkit"]
+    C -->|Yes| E["Cài Kali toolkit + Windows launchers"]
+    D --> F["~/.codex + /opt hooks + ctf-codex"]
+    E --> F
+    F --> G["Chạy health checks"]
+    G --> H["ctf-codex-toolkit <challenge>"]
+    H --> I["~/ctf-workspaces/_work/<challenge>"]
+    I --> J["Codex bên trong Kali"]
+```
+
+Setup làm năm việc:
+
+1. Copy payload được quản lý vào `~/.codex`.
+2. Cài guard hooks và launcher `ctf-codex` trong Kali.
+3. Cài và kiểm tra CTF tools trong `tools_inventory.md`, trừ khi bỏ qua.
+4. Chuẩn bị helper environment tùy chọn, gồm Browser Arm nếu không tắt.
+5. Chỉ trong Kali WSL, cài Windows launcher files và Desktop shortcut.
+
+Mặc định setup sẽ cài tool inventory. Nó dùng apt của Kali trước, sau đó dùng fallback installer cho những tool hay thiếu trên Kali minimal:
+
+- `/opt/codex-ctf-python` venv cho Python CTF libraries khi apt thiếu package.
+- `/opt/oss-cad-suite` cho `yosys` và `bitwuzla`.
+- `/opt/codex-ctf-sage` qua micromamba cho SageMath nếu apt không có `sage`.
+- Go fallback cho `ffuf` nếu apt thiếu.
+- Chromium runtime libraries và Browser Arm venv riêng cho `cloakbrowser==0.3.31`.
+
+Sau bootstrap, setup chạy health check. Nếu tool inventory vẫn thiếu, setup sẽ báo lỗi thật thay vì báo cài thành công.
+
+Sau setup, session challenge chạy dưới:
+
+```text
+<ctf-root>/_work/<challenge>
+```
+
+<a id="lenh-thuong-dung"></a>
+
+### Lệnh thường dùng
+
+```text
+ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
+ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
+ctf-codex-toolkit install-tools
+ctf-codex-toolkit health
+ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
+ctf-codex-toolkit install-launchers
+ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]
+ctf-codex <challenge> [-Resume] [--ctf-root <path>]
+```
+
+Alias tương thích:
+
+```text
+ctf-codex-workflow
+ctf-codex-wsl
+ctf-codex
+```
+
+`setup` là entry point thông thường. Nó chạy `install` rồi chạy `health`.
+
+Dùng `--skip-health` khi chưa muốn kiểm tra tool tùy chọn:
+
+```bash
+ctf-codex-toolkit setup --skip-health
+```
+
+Dùng `--skip-tools` để chỉ cài payload, hooks, launchers, và Browser Arm tùy chọn, không cài toàn bộ CTF inventory:
+
+```bash
+ctf-codex-toolkit setup --skip-tools
+```
+
+Cài hoặc sửa riêng tool inventory sau:
+
+```bash
+ctf-codex-toolkit install-tools
+```
+
+Bỏ qua Browser Arm hoàn toàn:
+
+```bash
+ctf-codex-toolkit setup --no-browser-arm
+```
+
+Trong Kali WSL, tạo lại riêng Windows launcher files và Desktop shortcut:
+
+```bash
+ctf-codex-toolkit install-launchers
+```
+
+Khi chạy Windows shortcut từ Kali WSL, launcher kiểm tra version `latest` trên npm. Nếu có bản mới hơn, nó hiện:
+
+```text
+Update available! <current> -> <latest>
+
+> 1. Update now
+  2. Skip
+  3. Skip until next version
+```
+
+Chọn update sẽ cập nhật payload, launcher, và version đã lưu trong Kali WSL, rồi tiếp tục mở challenge. Nó bỏ qua cài lại full CTF inventory; dùng `ctf-codex-toolkit install-tools` khi muốn sửa hoặc cài lại tools. Windows launcher có `LauncherVersion` riêng, nên shortcut cũ vẫn bị phát hiện ngay cả khi config WSL đã ghi version toolkit mới hơn.
+
+Nếu Codex không mở được, Windows launcher giữ console và in WSL exit code. Nguyên nhân thường gặp là Codex CLI chưa cài trong Kali, `codex` không có trong WSL `PATH`, hoặc sai tên WSL distro.
+
+<a id="file-duoc-cai"></a>
+
+### File được cài
+
+Trong Kali, `install` ghi:
+
+```text
+~/.codex/AGENTS.md
+~/.codex/ctf-checklists.md
+~/.codex/ctf-snippets/
+~/.codex/skills/ctf-*
+~/.codex/skills/solve-challenge
+~/.codex/skills/ctf-writeup
+~/.codex/tools/ctf_health_check.py
+~/.codex/tools/browser_arm/browser_server.py
+~/.codex/tools/browser_arm/browser_client.py
+~/.ctf-codex-toolkit.json
+/opt/codex-ctf-hooks/*
+/usr/local/bin/ctf-codex
+```
+
+Chỉ trong Kali WSL, setup cũng ghi file launcher phía Windows qua Windows interop:
+
+```text
+%USERPROFILE%\ctf-codex-wsl.ps1
+%USERPROFILE%\ctf-codex-wsl.cmd
+Desktop\CTF Codex WSL.lnk
+```
+
+Installer không copy:
+
+- `~/.codex/config.toml`
+- provider keys
+- API tokens
+- sessions
+- logs
+- cookies
+- `.env` files
+- private keys
+- runtime SQLite state
+
+Installer ghi hook executable vào `/opt/codex-ctf-hooks` và symlink vào `~/.codex/hooks`. Nó không tự sửa `~/.codex/config.toml` vì provider/runtime config thuộc về người dùng. Hãy kiểm tra Codex runtime của bạn có load hooks từ `~/.codex/hooks`; nếu bản Codex yêu cầu đăng ký hook rõ trong `config.toml`, đăng ký:
+
+```text
+/opt/codex-ctf-hooks/ctf_pre_tool_guard.py
+/opt/codex-ctf-hooks/ctf_post_tool_guard.py
+/opt/codex-ctf-hooks/ctf_stop_guard.py
+```
+
+<a id="mo-hinh-workspace"></a>
+
+### Mô hình workspace
+
+CTF root được chọn khi setup. Challenge tên `web_login` sẽ tạo hoặc dùng:
+
+```text
+~/ctf-workspaces/_work/web_login
+```
+
+Thư mục đó trở thành working directory cho Codex.
+
+Ví dụ:
+
+```bash
+ctf-codex-toolkit web_login
+ctf-codex-toolkit web_login -Resume
+```
+
+<a id="cap-nhat-skills"></a>
+
+### Cập nhật skills
+
+Các thư mục CTF skill được lấy từ [ljagiello/ctf-skills](https://github.com/ljagiello/ctf-skills.git). Credit nội dung CTF skill thuộc về project upstream và contributors của họ.
+
+Toolkit này đóng gói các skills đó cùng Kali launchers, guard hooks, health checks, snippets, và CTF workflow files.
+
+Cập nhật tự động từ upstream:
+
+```bash
+ctf-codex-toolkit update-skills
+```
+
+Cập nhật từ fork hoặc repo tương thích:
+
+```bash
+ctf-codex-toolkit update-skills --source https://github.com/<owner>/<repo>.git
+```
+
+Updater chạy trong Kali, clone source repository, tìm các thư mục skill có `SKILL.md`, rồi refresh các CTF skill tương ứng dưới:
+
+```text
+~/.codex/skills/
+```
+
+Nó cập nhật các thư mục tên `ctf-*`, `solve-challenge`, và `ctf-writeup`. Nó không xóa skill riêng không liên quan của người dùng.
+
+Cập nhật thủ công trong Kali:
+
+```bash
+tmp="$(mktemp -d)"
+git clone --depth 1 https://github.com/ljagiello/ctf-skills.git "$tmp/ctf-skills"
+mkdir -p ~/.codex/skills
+find "$tmp/ctf-skills" -mindepth 1 -maxdepth 3 -name SKILL.md -type f -print |
+while read -r skill_file; do
+  skill_dir="$(dirname "$skill_file")"
+  name="$(basename "$skill_dir")"
+  case "$name" in
+    ctf-*|solve-challenge|ctf-writeup)
+      rm -rf "$HOME/.codex/skills/$name"
+      cp -a "$skill_dir" "$HOME/.codex/skills/$name"
+      ;;
+  esac
+done
+rm -rf "$tmp"
+```
+
+Xem thêm [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+### Browser Arm
+
+Mặc định, `setup` và `install` tạo venv riêng tại:
+
+```text
+~/.codex/tools/browser_arm/.venv
+```
+
+và cài:
+
+```text
+cloakbrowser==0.3.31
+```
+
+CloakBrowser là project browser automation license MIT từ [CloakHQ/CloakBrowser](https://github.com/CloakHQ/CloakBrowser). Toolkit chỉ dùng nó cho Browser Arm workflow tùy chọn: chạy JavaScript, xem DOM, xem storage, console logs, và network logs trong web CTF challenges.
+
+CloakBrowser được cài trong Browser Arm venv riêng, không cài global. Lần dùng đầu tiên, CloakBrowser có thể tải và cache Chromium binary.
+
+Browser Arm server bind `127.0.0.1` và yêu cầu local shared token. Mặc định server tạo `.browser_token` trong `BROWSER_WORKDIR` và client đi kèm tự đọc token đó. Bạn cũng có thể set `BROWSER_TOKEN` hoặc `BROWSER_TOKEN_FILE` khi start cả server và client.
+
+Kali minimal có thể thiếu Chromium shared libraries. Nếu `ctf-codex-toolkit health` báo lỗi Browser Arm như `libnspr4.so: cannot open shared object file`, cài runtime dependencies:
+
+```bash
+sudo apt install -y libnspr4 libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libxkbcommon0
+```
+
+Bỏ qua dependency này:
+
+```bash
+ctf-codex-toolkit setup --no-browser-arm
+```
+
+<a id="health-checks-1"></a>
+
+### Health checks
+
+Chạy trong Kali:
+
+```bash
+ctf-codex-toolkit health
+```
+
+Health check kiểm tra payload đã cài, selected tools, provider readiness signals, Browser Arm files, và hook availability. Nó giúp phát hiện setup bị thiếu hoặc lệch trạng thái ngay sau khi cài.
+
+Trên Kali minimal, `setup` cài và kiểm tra inventory tools trước, gồm pwn, reverse, forensics, web fuzzing, cracking, hardware helpers, và Chromium runtime libraries dùng bởi Browser Arm. Các package lớn như `sagemath`, `ghidra`, `python3-angr`, và oss-cad-suite có thể tốn thời gian và dung lượng.
+
+<a id="mo-hinh-an-toan"></a>
+
+### Mô hình an toàn
+
+Pre-tool guard chặn các lệnh automated attack rủi ro cao và broad candidate search, nhưng vẫn cho phép loop nhỏ có tính quyết định. Path containment được canonicalize trước khi so sánh, nên traversal kiểu `..` qua patch/edit/write bị chặn trước khi tool chạy.
+
+Đây là defense-in-depth cho lỗi thao tác thường gặp. Nó không phải sandbox, không phải security boundary, và không thay thế việc chạy Codex trong workspace CTF đã scoped. Static script scanning là best-effort: inline `python -c`/`node -e` payload và script files được kiểm tra, nhưng code đưa qua pipe hoặc heredoc không được parse đầy đủ trước khi interpreter start.
+
+Regression checks hiện có:
+
+- `range(1<<20)` bị chặn
+- `range(10**8)` bị chặn
+- `range(100000000)` bị chặn
+- `range(2**20)` bị chặn
+- `range(2**10)` được cho phép
+- shell `for` loop nhỏ được cho phép
+- `hashcat` bị chặn
+
+<a id="ghi-chu-supply-chain"></a>
+
+### Ghi chú supply chain
+
+Nên dùng package npm đã publish cho cài đặt thông thường:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@0.1.22 -- ctf-codex-toolkit setup
+```
+
+Dạng cài từ GitHub sẽ chạy trực tiếp nội dung repository:
+
+```bash
+npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolkit setup
+```
+
+Với môi trường shared hoặc nhạy cảm:
+
+- Review repository trước khi chạy setup.
+- Pin npm version, Git tag, hoặc Git commit khi có thể.
+- Ưu tiên npm package thay vì GitHub branch mutable.
+- Chạy `npm run smoke` khi sửa package local.
+
+CI chạy `npm run smoke` và `npm pack --dry-run` trên push và pull request.
+
+<a id="dong-gop"></a>
+
+### Đóng góp
+
+Contributor và release notes nằm trong [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Development checks:
+
+```bash
+npm run smoke
+npm pack --dry-run
+```
+
+<a id="license-1"></a>
+
+### License
 
 [MIT](LICENSE)
