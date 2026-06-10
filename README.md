@@ -88,7 +88,7 @@ npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
 For a pinned install:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.2.0 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.1 -- ctf-codex-toolkit setup
 ```
 
 Or install the CLI globally inside Kali:
@@ -392,7 +392,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.2.0 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.1 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:
