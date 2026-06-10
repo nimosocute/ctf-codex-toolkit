@@ -21,9 +21,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ConfigPath = Join-Path $HOME ".ctf-codex-toolkit.json"
 
 if (-not $CtfRoot) {
-    $ConfigPath = Join-Path $HOME ".ctf-codex-toolkit.json"
     if (Test-Path -LiteralPath $ConfigPath) {
         try {
             $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
@@ -37,16 +37,47 @@ if (-not $CtfRoot) {
     $DefaultCtfRoot = Join-Path $HOME "ctf-workspaces"
     $InputRoot = Read-Host "CTF workspace root on Windows [$DefaultCtfRoot]"
     if ($InputRoot) { $CtfRoot = $InputRoot } else { $CtfRoot = $DefaultCtfRoot }
-    $ConfigPath = Join-Path $HOME ".ctf-codex-toolkit.json"
     @{ ctfRoot = $CtfRoot } | ConvertTo-Json | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
     Write-Host "[+] wrote $ConfigPath"
 }
 if (-not $Distro) { $Distro = "kali-linux" }
 
+function Repair-CompactWindowsPath {
+    param([Parameter(Mandatory = $true)][string]$PathValue)
+
+    $value = $PathValue.Trim().Trim('"')
+    if ($value -match '^[A-Za-z]:[\\/]' -or $value.StartsWith("\\") -or $value.StartsWith("~")) {
+        return $value
+    }
+
+    if ($env:USERPROFILE -match '^([A-Za-z]):\\Users\\([^\\]+)$') {
+        $drive = $Matches[1]
+        $user = $Matches[2]
+        $compactProfile = $drive + ":Users" + $user
+        if ($value.StartsWith($compactProfile) -and $value.Length -gt $compactProfile.Length) {
+            $tail = $value.Substring($compactProfile.Length)
+            return $drive + ":\Users\" + $user + "\" + $tail
+        }
+    }
+
+    return $value
+}
+
 function Resolve-WindowsFullPath {
     param([Parameter(Mandatory = $true)][string]$InputPath)
 
+    if ([string]::IsNullOrWhiteSpace($InputPath)) {
+        Write-Error "CTF workspace root is empty."
+        exit 1
+    }
+
     $expanded = [Environment]::ExpandEnvironmentVariables($InputPath)
+    if ([string]::IsNullOrWhiteSpace($expanded)) {
+        Write-Error "CTF workspace root is empty after environment expansion."
+        exit 1
+    }
+
+    $expanded = Repair-CompactWindowsPath $expanded
     if ($expanded -eq "~") {
         $expanded = $HOME
     } elseif ($expanded.StartsWith("~\") -or $expanded.StartsWith("~/")) {
@@ -54,6 +85,27 @@ function Resolve-WindowsFullPath {
     }
 
     return [System.IO.Path]::GetFullPath($expanded)
+}
+
+function ConvertTo-WslPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$WindowsPath,
+        [Parameter(Mandatory = $true)][string]$Distro
+    )
+
+    $converted = @(& wsl.exe -d $Distro -- wslpath -a "$WindowsPath" 2>$null)
+    if ($converted.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($converted[0])) {
+        return $converted[0].Trim()
+    }
+
+    if ($WindowsPath -match '^([A-Za-z]):\\(.*)$') {
+        $drive = $Matches[1].ToLowerInvariant()
+        $tail = $Matches[2] -replace '\\', '/'
+        return "/mnt/$drive/$tail"
+    }
+
+    Write-Error "Cannot convert workspace path to WSL path: $WindowsPath"
+    exit 1
 }
 
 function Quote-BashArgument {
@@ -65,6 +117,12 @@ function Quote-BashArgument {
 $CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot
 $WORK_ROOT = Join-Path $CTF_ROOT "_work"
 $WSL_DISTRO = $Distro
+
+try {
+    @{ ctfRoot = $CTF_ROOT } | ConvertTo-Json | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
+} catch {
+    Write-Host "[!] Could not update toolkit config: $ConfigPath"
+}
 
 function Invoke-ToolkitUpdateCheck {
     param([Parameter(Mandatory = $true)][string]$Distro)
@@ -154,7 +212,7 @@ foreach ($d in @($CTF_ROOT, $WORK_ROOT)) {
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d | Out-Null }
 }
 
-$WSL_CTF_ROOT = (& wsl.exe -d $WSL_DISTRO -- wslpath -a "$CTF_ROOT").Trim()
+$WSL_CTF_ROOT = ConvertTo-WslPath -WindowsPath $CTF_ROOT -Distro $WSL_DISTRO
 if (-not $WSL_CTF_ROOT) {
     Write-Error "Cannot convert CTF root to a WSL path: $CTF_ROOT"
     exit 1
@@ -332,7 +390,7 @@ Write-Utf8NoBomLf -Path $GuardBashPath -Content $GuardBashContent
 Set-Location $WORK
 Write-Host "[+] Windows CWD: $(Get-Location)"
 
-$WSL_WORK = (& wsl.exe -d $WSL_DISTRO -- wslpath -a "$WORK").Trim()
+$WSL_WORK = ConvertTo-WslPath -WindowsPath $WORK -Distro $WSL_DISTRO
 if (-not $WSL_WORK) {
     Write-Error "Cannot convert workspace to a WSL path: $WORK"
     exit 1

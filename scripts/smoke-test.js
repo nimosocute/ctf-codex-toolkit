@@ -114,6 +114,14 @@ if (!windowsLauncher.includes("function Quote-BashArgument") || !windowsLauncher
   console.error("Windows launcher must bash-quote WSL guard paths before chmod");
   process.exit(1);
 }
+if (!windowsLauncher.includes("function Repair-CompactWindowsPath") || !windowsLauncher.includes("function ConvertTo-WslPath")) {
+  console.error("Windows launcher must repair compact Windows paths and fallback-convert WSL paths");
+  process.exit(1);
+}
+if (!windowsLauncher.includes("\":Users\"") || !windowsLauncher.includes("/mnt/$drive/$tail")) {
+  console.error("Windows launcher path repair/fallback markers are missing");
+  process.exit(1);
+}
 
 const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-codex-toolkit.js"), "--help"], {
   encoding: "utf8"
