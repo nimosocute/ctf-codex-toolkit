@@ -65,7 +65,24 @@ try {
 NODE
 )"
 latest="$(npm view ctf-codex-toolkit version 2>/dev/null || true)"
-if [ -n "$latest" ] && [ "$latest" != "$current" ]; then
+should_update="$(node - "$current" "$latest" <<'NODE'
+const current = process.argv[2] || '0.0.0';
+const latest = process.argv[3] || '';
+function parts(version) {
+  const match = String(version).trim().match(/^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:[-+].*)?$/);
+  return match ? match.slice(1, 4).map(Number) : null;
+}
+const c = parts(current);
+const l = parts(latest);
+if (!c || !l) process.exit(1);
+for (let i = 0; i < 3; i += 1) {
+  if (l[i] > c[i]) { process.stdout.write('yes'); process.exit(0); }
+  if (l[i] < c[i]) { process.stdout.write('no'); process.exit(0); }
+}
+process.stdout.write('no');
+NODE
+)"
+if [ "$should_update" = "yes" ]; then
   printf '%s|%s\n' "$current" "$latest"
 fi
 '@
@@ -86,7 +103,7 @@ fi
     $Choice = Read-Host "Update now? [U]pdate/[S]kip"
     if ($Choice -match '^(u|update)$') {
         Write-Host "[+] Updating CTF Codex Toolkit to $LatestVersion..."
-        & wsl.exe -d $Distro -- bash -lc "npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health"
+        & wsl.exe -d $Distro -- bash -lc "npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools"
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Toolkit update failed."
             exit $LASTEXITCODE

@@ -90,7 +90,7 @@ npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
 For a pinned install:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.6 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.7 -- ctf-codex-toolkit setup
 ```
 
 Or install the CLI globally inside Kali:
@@ -265,7 +265,7 @@ When the Windows shortcut is launched from Kali WSL, it checks the published npm
 Update now? [U]pdate/[S]kip
 ```
 
-Choosing update runs the latest toolkit setup in Kali WSL and then continues launching the challenge.
+Choosing update refreshes the toolkit payload, launchers, and saved toolkit version in Kali WSL, then continues launching the challenge. It skips the full CTF tool inventory install; run `ctf-codex-toolkit install-tools` when you want to repair or reinstall tools.
 
 ## Installed Files
 
@@ -434,7 +434,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.6 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.7 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:
