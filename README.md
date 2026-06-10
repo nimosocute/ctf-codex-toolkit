@@ -22,6 +22,7 @@ The intended workflow is:
 
 ```text
 Kali shell
+  -> npm config set prefix ~/.npm-global
   -> npm install -g ctf-codex-toolkit
   -> ctf-codex-toolkit setup
   -> auto-detect Kali native vs Kali WSL
@@ -87,20 +88,37 @@ Verify Codex CLI is available inside Kali:
 codex --version
 ```
 
-Recommended for daily use: install the CLI globally inside Kali, then run setup:
+Recommended for daily use: install the CLI globally inside Kali, then run setup.
+
+System-wide install with sudo:
 
 ```bash
-npm install -g ctf-codex-toolkit
+sudo npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
 
-If global npm install fails with a permission error, use a user-owned npm prefix inside Kali:
+As of `0.1.23`, the npm package no longer installs a `ctf-codex` binary directly. That name is owned by `ctf-codex-toolkit setup`, which overwrites the old `/usr/local/bin/ctf-codex` launcher every time setup runs.
+
+If you prefer not to use sudo, use a user-owned npm prefix:
 
 ```bash
 npm config set prefix ~/.npm-global
 mkdir -p ~/.npm-global/bin
-echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+grep -qxF 'export PATH="$HOME/.npm-global/bin:$PATH"' ~/.bashrc || echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+export PATH="$HOME/.npm-global/bin:$PATH"
+npm install -g ctf-codex-toolkit
+ctf-codex-toolkit setup
+```
+
+The user-owned prefix avoids the common npm `EACCES` error caused by trying to write global packages into `/usr/local`.
+
+If you already saw `EACCES`, run the same repair commands:
+
+```bash
+npm config set prefix ~/.npm-global
+mkdir -p ~/.npm-global/bin
+grep -qxF 'export PATH="$HOME/.npm-global/bin:$PATH"' ~/.bashrc || echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+export PATH="$HOME/.npm-global/bin:$PATH"
 npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
@@ -108,7 +126,9 @@ ctf-codex-toolkit setup
 For a pinned global install:
 
 ```bash
-npm install -g ctf-codex-toolkit@0.1.22
+npm config set prefix ~/.npm-global
+export PATH="$HOME/.npm-global/bin:$PATH"
+npm install -g ctf-codex-toolkit@0.1.23
 ctf-codex-toolkit setup
 ```
 
@@ -520,7 +540,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.22 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.23 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:
@@ -570,6 +590,7 @@ Luồng sử dụng chính:
 
 ```text
 Kali shell
+  -> npm config set prefix ~/.npm-global
   -> npm install -g ctf-codex-toolkit
   -> ctf-codex-toolkit setup
   -> tự nhận diện Kali native hay Kali WSL
@@ -639,20 +660,37 @@ Kiểm tra Codex CLI có sẵn trong Kali:
 codex --version
 ```
 
-Cách khuyến nghị để dùng hằng ngày: cài CLI global bên trong Kali, rồi chạy setup:
+Cách khuyến nghị để dùng hằng ngày: cài CLI global bên trong Kali, rồi chạy setup.
+
+Cài system-wide bằng sudo:
 
 ```bash
-npm install -g ctf-codex-toolkit
+sudo npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
 
-Nếu cài global bị lỗi quyền, dùng npm prefix nằm trong home của user Kali:
+Từ `0.1.23`, npm package không còn cài trực tiếp binary `ctf-codex`. Tên đó thuộc về `ctf-codex-toolkit setup`, và setup sẽ ghi đè launcher cũ ở `/usr/local/bin/ctf-codex` mỗi lần chạy.
+
+Nếu không muốn dùng sudo, dùng npm prefix nằm trong home của user:
 
 ```bash
 npm config set prefix ~/.npm-global
 mkdir -p ~/.npm-global/bin
-echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+grep -qxF 'export PATH="$HOME/.npm-global/bin:$PATH"' ~/.bashrc || echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+export PATH="$HOME/.npm-global/bin:$PATH"
+npm install -g ctf-codex-toolkit
+ctf-codex-toolkit setup
+```
+
+Prefix trong home tránh lỗi npm `EACCES` thường gặp khi npm cố ghi global package vào `/usr/local`.
+
+Nếu bạn đã gặp `EACCES`, chạy lại các lệnh sửa này:
+
+```bash
+npm config set prefix ~/.npm-global
+mkdir -p ~/.npm-global/bin
+grep -qxF 'export PATH="$HOME/.npm-global/bin:$PATH"' ~/.bashrc || echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+export PATH="$HOME/.npm-global/bin:$PATH"
 npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
@@ -660,7 +698,9 @@ ctf-codex-toolkit setup
 Cài global theo version cố định:
 
 ```bash
-npm install -g ctf-codex-toolkit@0.1.22
+npm config set prefix ~/.npm-global
+export PATH="$HOME/.npm-global/bin:$PATH"
+npm install -g ctf-codex-toolkit@0.1.23
 ctf-codex-toolkit setup
 ```
 
@@ -1092,7 +1132,7 @@ Regression checks hiện có:
 Nên dùng package npm đã publish cho cài đặt thông thường:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.22 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.23 -- ctf-codex-toolkit setup
 ```
 
 Dạng cài từ GitHub sẽ chạy trực tiếp nội dung repository:

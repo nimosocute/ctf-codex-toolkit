@@ -66,7 +66,6 @@ Usage:
 Aliases:
   ctf-codex-workflow
   ctf-codex-wsl
-  ctf-codex
 
 Examples:
   npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup

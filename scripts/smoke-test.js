@@ -106,6 +106,12 @@ for (const rel of ["README.md", "package.json", "bin/ctf-codex-toolkit.js"]) {
   }
 }
 
+const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+if (packageJson.bin && Object.prototype.hasOwnProperty.call(packageJson.bin, "ctf-codex")) {
+  console.error("npm package must not install a ctf-codex bin; setup owns /usr/local/bin/ctf-codex");
+  process.exit(1);
+}
+
 const windowsLauncher = fs.readFileSync(path.join(root, "payload/windows-launchers/ctf-codex-wsl.ps1"), "utf8");
 if (!windowsLauncher.includes("$CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot")) {
   console.error("Windows launcher must resolve CTF root to an absolute path before deriving _work paths");
