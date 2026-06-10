@@ -5,7 +5,7 @@ const childProcess = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
 const required = [
-  "bin/ctf-codex-wsl.js",
+  "bin/ctf-codex-toolkit.js",
   ".github/workflows/ci.yml",
   "CONTRIBUTING.md",
   "THIRD_PARTY_NOTICES.md",
@@ -18,9 +18,7 @@ const required = [
   "payload/opt-hooks/ctf_post_tool_guard.py",
   "payload/opt-hooks/ctf_stop_guard.py",
   "payload/opt-hooks/ctf-command-guard",
-  "payload/usr-local-bin/ctf-codex",
-  "payload/windows-launchers/ctf-codex-wsl.ps1",
-  "payload/windows-launchers/ctf-codex-wsl.cmd"
+  "payload/usr-local-bin/ctf-codex"
 ];
 
 const forbiddenPathParts = [
@@ -34,15 +32,11 @@ const forbiddenPathParts = [
 const forbiddenText = [
   ["127.0.0.1", ":", "20128"].join(""),
   ["cx", "/", "gpt"].join(""),
-  ["gpt-", "5.5"].join(""),
-  ["D:", "\\", "CTF"].join(""),
-  ["/mnt", "/d/", "CTF"].join(""),
-  ["/mnt", "/d/", "ctf"].join("")
+  ["gpt-", "5.5"].join("")
 ];
 
 const forbiddenRegex = [
   /\/home\/[A-Za-z0-9_-]+\/\.codex/,
-  /C:\\Users\\[^\\]+\\\.codex/i,
   /9\s*router/i,
   /sk-(?=[A-Za-z0-9_-]{20,})(?=[A-Za-z0-9_-]*[A-Z0-9_])[A-Za-z0-9_-]+/,
   /Bearer\s+[A-Za-z0-9._-]{20,}/
@@ -88,7 +82,7 @@ function walk(dir) {
 
 walk(path.join(root, "payload"));
 
-for (const rel of ["README.md", "package.json", "bin/ctf-codex-wsl.js"]) {
+for (const rel of ["README.md", "package.json", "bin/ctf-codex-toolkit.js"]) {
   const text = fs.readFileSync(path.join(root, rel), "utf8");
   for (const needle of forbiddenText) {
     if (text.includes(needle)) {
@@ -104,7 +98,7 @@ for (const rel of ["README.md", "package.json", "bin/ctf-codex-wsl.js"]) {
   }
 }
 
-const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-codex-wsl.js"), "--help"], {
+const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-codex-toolkit.js"), "--help"], {
   encoding: "utf8"
 });
 if (

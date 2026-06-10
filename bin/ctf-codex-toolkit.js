@@ -8,7 +8,6 @@ const childProcess = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
 const PAYLOAD = path.join(ROOT, "payload");
-const DEFAULT_DISTRO = process.env.CTF_CODEX_WSL_DISTRO || "kali-linux";
 const DEFAULT_SKILLS_SOURCE = "https://github.com/ljagiello/ctf-skills.git";
 const CLOAKBROWSER_VERSION = "0.3.31";
 const CONFIG_PATH = path.join(os.homedir(), ".ctf-codex-toolkit.json");
@@ -17,12 +16,11 @@ function usage() {
   console.log(`ctf-codex-toolkit
 
 Usage:
-  ctf-codex-toolkit setup [--distro kali-linux] [--ctf-root <path>] [--no-browser-arm] [--skip-health]
-  ctf-codex-toolkit install [--distro kali-linux] [--ctf-root <path>] [--no-browser-arm]
-  ctf-codex-toolkit health [--distro kali-linux]
-  ctf-codex-toolkit update-skills [--distro kali-linux] [--source https://github.com/ljagiello/ctf-skills.git]
-  ctf-codex-toolkit install-launchers
-  ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root <path>]
+  ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-health]
+  ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm]
+  ctf-codex-toolkit health
+  ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
+  ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]
 
 Aliases:
   ctf-codex-workflow
@@ -30,16 +28,22 @@ Aliases:
   ctf-codex
 
 Examples:
-  npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolkit setup
+  npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
   ctf-codex-toolkit setup
-  ctf-codex-toolkit <challenge_name>
-  ctf-codex-toolkit <challenge_name> -Resume
+  ctf-codex-toolkit web_login
+  ctf-codex-toolkit web_login -Resume
 `);
 }
 
 function fail(message) {
   console.error(`[!] ${message}`);
   process.exit(1);
+}
+
+function ensureUnix() {
+  if (process.platform === "win32") {
+    fail("Run this command inside Kali Linux or Kali WSL.");
+  }
 }
 
 function hasFlag(args, flag) {
@@ -93,17 +97,13 @@ function promptLine(question, fallback) {
   return answer || fallback;
 }
 
-function defaultCtfRoot() {
-  return path.join(os.homedir(), "ctf-workspaces");
-}
-
 function resolveCtfRoot(args, options = {}) {
   const explicit = getOption(args, "--ctf-root", "");
   const envRoot = process.env.CTF_CODEX_ROOT || process.env.CTF_ROOT || "";
   const config = readConfig();
   let ctfRoot = explicit || envRoot || config.ctfRoot || "";
   if (!ctfRoot && options.prompt) {
-    ctfRoot = promptLine("CTF workspace root on Windows", defaultCtfRoot());
+    ctfRoot = promptLine("CTF workspace root", path.join(os.homedir(), "ctf-workspaces"));
   }
   if (!ctfRoot) return "";
   return path.resolve(ctfRoot);
@@ -116,133 +116,69 @@ function run(command, args, options = {}) {
     shell: false,
     ...options
   });
-  if (result.error) {
-    fail(`${command} failed: ${result.error.message}`);
-  }
+  if (result.error) fail(`${command} failed: ${result.error.message}`);
   if (options.capture) {
-    if (result.status !== 0) {
-      fail(`${command} ${args.join(" ")} failed:\n${result.stderr || result.stdout}`);
-    }
+    if (result.status !== 0) fail(`${command} ${args.join(" ")} failed:\n${result.stderr || result.stdout}`);
     return result.stdout.trim();
   }
-  if (result.status !== 0) {
-    process.exit(result.status || 1);
-  }
+  if (result.status !== 0) process.exit(result.status || 1);
   return "";
-}
-
-function wslArgs(distro, user, commandArgs) {
-  const args = ["-d", distro];
-  if (user) args.push("-u", user);
-  args.push("--", ...commandArgs);
-  return args;
-}
-
-function runWsl(distro, commandArgs, options = {}) {
-  return run("wsl.exe", wslArgs(distro, options.user, commandArgs), options);
 }
 
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
-function psQuote(value) {
-  return `'${String(value).replace(/'/g, "''")}'`;
+function copyDir(source, target) {
+  fs.mkdirSync(target, { recursive: true });
+  fs.cpSync(source, target, { recursive: true, force: true });
 }
 
-function toWslPath(distro, winPath) {
-  if (process.platform !== "win32") {
-    return winPath;
-  }
-  return runWsl(distro, ["wslpath", "-a", winPath], { capture: true });
+function copyFile(source, target, mode) {
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.copyFileSync(source, target);
+  if (mode) fs.chmodSync(target, mode);
 }
 
-function ensureWindows() {
-  if (process.platform !== "win32") {
-    fail("This launcher is intended to be run from Windows with WSL installed.");
-  }
+function runBash(script) {
+  return run("bash", ["-lc", script]);
 }
 
-function findPowerShell() {
-  for (const exe of ["pwsh.exe", "powershell.exe"]) {
-    const result = childProcess.spawnSync("where", [exe], { stdio: "ignore", shell: false });
-    if (result.status === 0) return exe;
+function runPrivilegedBash(script) {
+  if (typeof process.getuid === "function" && process.getuid() === 0) {
+    return run("bash", ["-lc", script]);
   }
-  fail("Cannot find pwsh.exe or powershell.exe.");
-}
-
-function copyWindowsLaunchers(ctfRoot = "") {
-  ensureWindows();
-  const sourceDir = path.join(PAYLOAD, "windows-launchers");
-  const cmdLauncher = path.join(os.homedir(), "ctf-codex-wsl.cmd");
-  const targets = [
-    ["ctf-codex-wsl.ps1", path.join(os.homedir(), "ctf-codex-wsl.ps1")],
-    ["ctf-codex-wsl.cmd", cmdLauncher]
-  ];
-  for (const [name, target] of targets) {
-    fs.copyFileSync(path.join(sourceDir, name), target);
-    console.log(`[+] wrote ${target}`);
-  }
-  createDesktopShortcut(cmdLauncher);
-  if (ctfRoot) {
-    const config = { ...readConfig(), ctfRoot };
-    writeConfig(config);
-  }
-}
-
-function createDesktopShortcut(cmdLauncher) {
-  const ps = findPowerShell();
-  const script = [
-    "$desktop = [Environment]::GetFolderPath('Desktop')",
-    "if (-not $desktop) { throw 'Cannot resolve Desktop path.' }",
-    "$shortcutPath = Join-Path $desktop 'CTF Codex WSL.lnk'",
-    "$shell = New-Object -ComObject WScript.Shell",
-    "$shortcut = $shell.CreateShortcut($shortcutPath)",
-    `$shortcut.TargetPath = ${psQuote(cmdLauncher)}`,
-    "$shortcut.WorkingDirectory = [Environment]::GetFolderPath('UserProfile')",
-    "$shortcut.Description = 'Launch CTF Codex Toolkit for Kali WSL'",
-    "$shortcut.Save()",
-    "Write-Output $shortcutPath"
-  ].join("; ");
-  const shortcutPath = run(ps, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], { capture: true });
-  console.log(`[+] wrote ${shortcutPath}`);
+  return run("sudo", ["bash", "-lc", script]);
 }
 
 function install(args) {
-  ensureWindows();
-  const distro = getOption(args, "--distro", DEFAULT_DISTRO);
+  ensureUnix();
   const ctfRoot = resolveCtfRoot(args, { prompt: true });
   const withBrowserArm = !hasFlag(args, "--no-browser-arm");
-  const payloadWsl = shellQuote(toWslPath(distro, PAYLOAD));
-  const ctfRootWsl = shellQuote(toWslPath(distro, ctfRoot));
+  const codexHome = path.join(os.homedir(), ".codex");
 
-  console.log(`[+] Installing CTF Codex payload into WSL distro: ${distro}`);
+  console.log("[+] Installing CTF Codex payload into this Kali environment");
   console.log(`[+] CTF workspace root: ${ctfRoot}`);
 
-  const userInstall = `
-set -euo pipefail
-payload=${payloadWsl}
-ctf_root=${ctfRootWsl}
-mkdir -p "$HOME/.codex/tools/browser_arm" "$HOME/.codex/ctf-snippets" "$HOME/.codex/skills" "$HOME/.codex/hooks"
-sed "s|{{CTF_ROOT}}|$ctf_root|g" "$payload/home-codex/AGENTS.md" > "$HOME/.codex/AGENTS.md"
-cp "$payload/home-codex/ctf-checklists.md" "$HOME/.codex/ctf-checklists.md"
-cp "$payload/home-codex/tools_inventory.md" "$HOME/.codex/tools_inventory.md"
-cp "$payload/home-codex/tools/ctf_health_check.py" "$HOME/.codex/tools/ctf_health_check.py"
-cp "$payload/home-codex/tools/browser_arm/browser_server.py" "$HOME/.codex/tools/browser_arm/browser_server.py"
-cp "$payload/home-codex/tools/browser_arm/browser_client.py" "$HOME/.codex/tools/browser_arm/browser_client.py"
-cp -a "$payload/home-codex/ctf-snippets/." "$HOME/.codex/ctf-snippets/"
-cp -a "$payload/home-codex/skills/." "$HOME/.codex/skills/"
-chmod 755 "$HOME/.codex/tools/ctf_health_check.py"
-chmod 644 "$HOME/.codex/tools/browser_arm/browser_server.py" "$HOME/.codex/tools/browser_arm/browser_client.py"
-ln -sf /opt/codex-ctf-hooks/ctf_pre_tool_guard.py "$HOME/.codex/hooks/ctf_pre_tool_guard.py"
-ln -sf /opt/codex-ctf-hooks/ctf_post_tool_guard.py "$HOME/.codex/hooks/ctf_post_tool_guard.py"
-ln -sf /opt/codex-ctf-hooks/ctf_stop_guard.py "$HOME/.codex/hooks/ctf_stop_guard.py"
-`;
-  runWsl(distro, ["bash", "-lc", userInstall]);
+  fs.mkdirSync(path.join(codexHome, "tools", "browser_arm"), { recursive: true });
+  fs.mkdirSync(path.join(codexHome, "ctf-snippets"), { recursive: true });
+  fs.mkdirSync(path.join(codexHome, "skills"), { recursive: true });
+  fs.mkdirSync(path.join(codexHome, "hooks"), { recursive: true });
+
+  const agents = fs.readFileSync(path.join(PAYLOAD, "home-codex", "AGENTS.md"), "utf8")
+    .replaceAll("{{CTF_ROOT}}", ctfRoot);
+  fs.writeFileSync(path.join(codexHome, "AGENTS.md"), agents, "utf8");
+  copyFile(path.join(PAYLOAD, "home-codex", "ctf-checklists.md"), path.join(codexHome, "ctf-checklists.md"));
+  copyFile(path.join(PAYLOAD, "home-codex", "tools_inventory.md"), path.join(codexHome, "tools_inventory.md"));
+  copyFile(path.join(PAYLOAD, "home-codex", "tools", "ctf_health_check.py"), path.join(codexHome, "tools", "ctf_health_check.py"), 0o755);
+  copyFile(path.join(PAYLOAD, "home-codex", "tools", "browser_arm", "browser_server.py"), path.join(codexHome, "tools", "browser_arm", "browser_server.py"), 0o644);
+  copyFile(path.join(PAYLOAD, "home-codex", "tools", "browser_arm", "browser_client.py"), path.join(codexHome, "tools", "browser_arm", "browser_client.py"), 0o644);
+  copyDir(path.join(PAYLOAD, "home-codex", "ctf-snippets"), path.join(codexHome, "ctf-snippets"));
+  copyDir(path.join(PAYLOAD, "home-codex", "skills"), path.join(codexHome, "skills"));
 
   const rootInstall = `
 set -euo pipefail
-payload=${payloadWsl}
+payload=${shellQuote(PAYLOAD)}
 mkdir -p /opt/codex-ctf-hooks /usr/local/bin
 cp "$payload/opt-hooks/ctf_pre_tool_guard.py" /opt/codex-ctf-hooks/ctf_pre_tool_guard.py
 cp "$payload/opt-hooks/ctf_post_tool_guard.py" /opt/codex-ctf-hooks/ctf_post_tool_guard.py
@@ -252,7 +188,17 @@ cp "$payload/usr-local-bin/ctf-codex" /usr/local/bin/ctf-codex
 chmod 755 /opt/codex-ctf-hooks/ctf_pre_tool_guard.py /opt/codex-ctf-hooks/ctf_post_tool_guard.py /opt/codex-ctf-hooks/ctf_stop_guard.py /opt/codex-ctf-hooks/ctf-command-guard /usr/local/bin/ctf-codex
 chown root:root /opt/codex-ctf-hooks/ctf_pre_tool_guard.py /opt/codex-ctf-hooks/ctf_post_tool_guard.py /opt/codex-ctf-hooks/ctf_stop_guard.py /opt/codex-ctf-hooks/ctf-command-guard /usr/local/bin/ctf-codex
 `;
-  runWsl(distro, ["bash", "-lc", rootInstall], { user: "root" });
+  runPrivilegedBash(rootInstall);
+
+  for (const [name, target] of [
+    ["ctf_pre_tool_guard.py", "/opt/codex-ctf-hooks/ctf_pre_tool_guard.py"],
+    ["ctf_post_tool_guard.py", "/opt/codex-ctf-hooks/ctf_post_tool_guard.py"],
+    ["ctf_stop_guard.py", "/opt/codex-ctf-hooks/ctf_stop_guard.py"]
+  ]) {
+    const link = path.join(codexHome, "hooks", name);
+    fs.rmSync(link, { force: true });
+    fs.symlinkSync(target, link);
+  }
 
   if (withBrowserArm) {
     console.log("[+] Installing Browser Arm Python dependency in isolated ~/.codex/tools/browser_arm/.venv");
@@ -265,32 +211,26 @@ from cloakbrowser import ensure_binary
 print(ensure_binary())
 PY
 `;
-    runWsl(distro, ["bash", "-lc", browserInstall]);
+    runBash(browserInstall);
   } else {
     console.log("[=] Skipped Browser Arm venv install (--no-browser-arm).");
   }
 
-  copyWindowsLaunchers(ctfRoot);
+  writeConfig({ ...readConfig(), ctfRoot });
   console.log("[+] Install complete.");
 }
 
-function health(args) {
-  ensureWindows();
-  const distro = getOption(args, "--distro", DEFAULT_DISTRO);
-  runWsl(distro, ["bash", "-lc", "python3 ~/.codex/tools/ctf_health_check.py"]);
+function health() {
+  ensureUnix();
+  return run("python3", [path.join(os.homedir(), ".codex", "tools", "ctf_health_check.py")]);
 }
 
 function updateSkills(args) {
-  ensureWindows();
-  const distro = getOption(args, "--distro", DEFAULT_DISTRO);
+  ensureUnix();
   const source = getOption(args, "--source", DEFAULT_SKILLS_SOURCE);
-
   if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?$/.test(source)) {
     fail("Refusing unsupported skill source URL. Use an HTTPS GitHub repository URL.");
   }
-
-  console.log(`[+] Updating CTF skills in WSL distro: ${distro}`);
-  console.log(`[+] Source: ${source}`);
 
   const updateScript = `
 set -euo pipefail
@@ -319,33 +259,29 @@ if [ "$count" -eq 0 ]; then
 fi
 printf '[+] Updated %s skill directories.\\n' "$count"
 `;
-  runWsl(distro, ["bash", "-lc", updateScript]);
+  console.log("[+] Updating CTF skills in this Kali environment");
+  return runBash(updateScript);
 }
 
 function setup(args) {
   const installArgs = removeFlags(args, ["--skip-health"]);
   const skipHealth = hasFlag(args, "--skip-health");
-
   install(installArgs);
   if (skipHealth) {
     console.log("[=] Skipped health check (--skip-health).");
     return;
   }
-
   console.log("[+] Running health check");
-  health(installArgs);
+  health();
 }
 
 function launch(args) {
-  ensureWindows();
-  const ps = findPowerShell();
-  const launcher = path.join(PAYLOAD, "windows-launchers", "ctf-codex-wsl.ps1");
-  const distro = getOption(args, "--distro", "");
+  ensureUnix();
   const ctfRoot = resolveCtfRoot(args);
-  const psArgs = removeOptions(args, ["--distro", "--ctf-root"]);
-  if (distro) psArgs.push("-Distro", distro);
-  if (ctfRoot) psArgs.push("-CtfRoot", ctfRoot);
-  run(ps, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", launcher, ...psArgs]);
+  const launchArgs = removeOptions(args, ["--ctf-root"]);
+  const env = { ...process.env };
+  if (ctfRoot) env.CTF_ROOT = ctfRoot;
+  run("bash", [path.join(PAYLOAD, "usr-local-bin", "ctf-codex"), ...launchArgs], { env });
 }
 
 function main() {
@@ -358,9 +294,8 @@ function main() {
   const [cmd, ...rest] = args;
   if (cmd === "setup") return setup(rest);
   if (cmd === "install") return install(rest);
-  if (cmd === "health") return health(rest);
+  if (cmd === "health") return health();
   if (cmd === "update-skills") return updateSkills(rest);
-  if (cmd === "install-launchers") return copyWindowsLaunchers(resolveCtfRoot(rest, { prompt: true }));
   if (cmd === "version" || cmd === "--version") {
     const pkg = require(path.join(ROOT, "package.json"));
     console.log(pkg.version);

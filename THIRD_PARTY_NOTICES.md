@@ -13,7 +13,7 @@ The upstream project provides Agent Skills for CTF categories including web expl
 
 This toolkit packages those skills with additional Windows/Kali WSL launchers, guard hooks, health checks, and workflow files. Users can update the packaged skill directories from the upstream repository with:
 
-```powershell
+```bash
 ctf-codex-toolkit update-skills
 ```
 
@@ -30,6 +30,6 @@ CloakBrowser provides a Chromium-based browser automation layer with Playwright-
 
 Users can skip this dependency during setup:
 
-```powershell
+```bash
 ctf-codex-toolkit setup --no-browser-arm
 ```

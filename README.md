@@ -5,20 +5,20 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-339933.svg)](package.json)
 
-CTF-focused Codex setup for Windows + Kali WSL.
+CTF-focused Codex setup for Kali Linux and Kali WSL.
 
-`ctf-codex-toolkit` installs a managed Codex CTF environment: skills, checklists, snippets, guard hooks, health checks, optional browser automation helpers, and Windows launchers for per-challenge workspaces.
+`ctf-codex-toolkit` is a Linux-side toolkit. Run it from a Kali shell, either on native Kali or inside Kali WSL. It installs the managed Codex CTF environment into that Kali environment: skills, checklists, snippets, guard hooks, health checks, optional browser automation helpers, and per-challenge launchers.
 
-The toolkit is designed for this workflow:
+The intended workflow is:
 
 ```text
-Windows terminal
-  -> npm package command
-  -> existing Kali WSL distro
-  -> toolkit installer runs inside Kali
+Kali shell
+  -> npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
   -> ~/.codex CTF payload
-  -> ctf-codex <challenge>
-  -> isolated workspace at <ctf-root>\_work\<challenge>
+  -> /opt/codex-ctf-hooks guard hooks
+  -> ctf-codex-toolkit <challenge>
+  -> ~/ctf-workspaces/_work/<challenge>
+  -> codex inside Kali
 ```
 
 ## Table of Contents
@@ -40,7 +40,7 @@ Windows terminal
 
 ## What This Project Provides
 
-This repository packages the operational pieces needed to run Codex as a CTF assistant inside Kali WSL while launching it comfortably from Windows.
+This repository packages the operational pieces needed to run Codex as a CTF assistant inside Kali.
 
 | Area | Included |
 | --- | --- |
@@ -49,88 +49,97 @@ This repository packages the operational pieces needed to run Codex as a CTF ass
 | Guard hooks | Pre-tool checks for broad scans, high-risk commands, and oversized candidate loops |
 | Health checks | One-shot environment inventory for CTF tools, providers, Browser Arm, hooks |
 | Browser support | Optional isolated Browser Arm venv using pinned `cloakbrowser==0.3.31` |
-| Windows launchers | PowerShell/CMD launchers and a Desktop shortcut |
+| Launchers | `ctf-codex-toolkit <challenge>` and `/usr/local/bin/ctf-codex <challenge>` |
 | Workspace layout | Per-challenge directories under a user-selected CTF root |
 
 The package intentionally does not ship Codex provider configuration. Users keep their own official OpenAI Codex config or compatible third-party config outside this repository.
 
 ## Install
 
-Run the setup command from PowerShell:
+All commands below run inside Kali Linux or Kali WSL.
 
-```powershell
+Install prerequisites if they are missing:
+
+```bash
+sudo apt update
+sudo apt install -y nodejs npm python3 python3-venv git sudo
+```
+
+Verify Codex CLI is available inside Kali:
+
+```bash
+codex --version
+```
+
+Run setup:
+
+```bash
 npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
 ```
 
 For a pinned install:
 
-```powershell
+```bash
 npm exec --yes --package ctf-codex-toolkit@0.1.0 -- ctf-codex-toolkit setup
 ```
 
-Or install the CLI globally:
+Or install the CLI globally inside Kali:
 
-```powershell
+```bash
 npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
 
 Start a challenge session:
 
-```powershell
+```bash
 ctf-codex-toolkit my_challenge
 ```
 
 Resume the last session for a challenge:
 
-```powershell
+```bash
 ctf-codex-toolkit my_challenge -Resume
 ```
 
 Install directly from GitHub when testing unreleased changes:
 
-```powershell
+```bash
 npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolkit setup
 ```
 
 ## Requirements
 
-- Windows with WSL2
-- Existing Kali WSL distro, default name `kali-linux`
-- Node.js/npm on Windows
-- Codex CLI installed inside Kali WSL and available as `codex`
+- Kali Linux or Kali WSL
+- Node.js/npm inside Kali
+- Python 3 and `python3-venv`
+- Git
+- `sudo` for installing `/opt/codex-ctf-hooks/*` and `/usr/local/bin/ctf-codex`
+- Codex CLI installed inside Kali and available as `codex`
 
-This package does not install WSL, install Kali Linux, or install Codex CLI. It configures an existing Kali WSL environment for CTF-focused Codex workflows.
-
-Use a non-default WSL distro:
-
-```powershell
-ctf-codex-toolkit setup --distro kali-linux
-ctf-codex-toolkit my_challenge --distro kali-linux
-```
+This package does not install Kali Linux, WSL, or Codex CLI. It configures an existing Kali environment for CTF-focused Codex workflows.
 
 Use a non-default CTF root:
 
-```powershell
-ctf-codex-toolkit setup --ctf-root C:\CTF
-ctf-codex-toolkit my_challenge --ctf-root C:\CTF
+```bash
+ctf-codex-toolkit setup --ctf-root ~/ctf
+ctf-codex-toolkit my_challenge --ctf-root ~/ctf
 ```
 
-During `setup` or `install`, the CLI asks where to place the Windows CTF workspace root and stores the answer in:
+During `setup` or `install`, the CLI asks where to place the CTF workspace root and stores the answer in:
 
 ```text
-%USERPROFILE%\.ctf-codex-toolkit.json
+~/.ctf-codex-toolkit.json
 ```
 
 Press Enter to use:
 
 ```text
-%USERPROFILE%\ctf-workspaces
+~/ctf-workspaces
 ```
 
 The launcher also honors:
 
-- `CTF_CODEX_WSL_DISTRO`
 - `CTF_CODEX_ROOT`
 - `CTF_ROOT`
 - `CODEX_BIN`
@@ -141,39 +150,37 @@ Explicit CLI flags take precedence over environment variables and saved config.
 
 ```mermaid
 flowchart LR
-    A["PowerShell / CMD"] --> B["ctf-codex-toolkit"]
-    B --> C["WSL: kali-linux"]
-    C --> D["Run toolkit installer inside Kali"]
-    D --> K["Install managed Codex CTF payload"]
-    K --> E["Run health checks"]
-    E --> F["Create Windows launchers"]
-    F --> G["Desktop shortcut"]
-    B --> H["Start challenge"]
-    H --> I["<ctf-root>\\_work\\<challenge>"]
-    I --> J["codex inside Kali WSL"]
+    A["Kali shell"] --> B["npm exec ctf-codex-toolkit setup"]
+    B --> C["Install ~/.codex CTF payload"]
+    B --> D["Install /opt/codex-ctf-hooks"]
+    B --> E["Install /usr/local/bin/ctf-codex"]
+    C --> F["Run health checks"]
+    E --> G["ctf-codex-toolkit <challenge>"]
+    G --> H["~/ctf-workspaces/_work/<challenge>"]
+    H --> I["codex inside Kali"]
 ```
 
 Setup performs three jobs:
 
-1. Copy the managed payload into Kali WSL.
-2. Prepare optional helper environments, including Browser Arm unless skipped.
-3. Create Windows launchers and a Desktop shortcut for repeated use.
+1. Copy the managed payload into `~/.codex`.
+2. Install guard hooks and the `ctf-codex` launcher locally in Kali.
+3. Prepare optional helper environments, including Browser Arm unless skipped.
 
 After setup, challenge sessions run under:
 
 ```text
-<ctf-root>\_work\<challenge>
+<ctf-root>/_work/<challenge>
 ```
 
 ## Command Reference
 
 ```text
-ctf-codex-toolkit setup [--distro kali-linux] [--ctf-root <path>] [--no-browser-arm] [--skip-health]
-ctf-codex-toolkit install [--distro kali-linux] [--ctf-root <path>] [--no-browser-arm]
-ctf-codex-toolkit health [--distro kali-linux]
-ctf-codex-toolkit update-skills [--distro kali-linux] [--source https://github.com/ljagiello/ctf-skills.git]
-ctf-codex-toolkit install-launchers
-ctf-codex-toolkit <challenge> [-Resume] [--distro kali-linux] [--ctf-root <path>]
+ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-health]
+ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm]
+ctf-codex-toolkit health
+ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
+ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]
+ctf-codex <challenge> [-Resume] [--ctf-root <path>]
 ```
 
 Compatibility aliases:
@@ -188,19 +195,19 @@ ctf-codex
 
 Use `--skip-health` when optional tools are not installed yet:
 
-```powershell
+```bash
 ctf-codex-toolkit setup --skip-health
 ```
 
 Use `--no-browser-arm` to skip Browser Arm entirely:
 
-```powershell
+```bash
 ctf-codex-toolkit setup --no-browser-arm
 ```
 
 ## Installed Files
 
-Inside Kali WSL, `install` writes:
+Inside Kali, `install` writes:
 
 ```text
 ~/.codex/AGENTS.md
@@ -211,20 +218,11 @@ Inside Kali WSL, `install` writes:
 ~/.codex/skills/ctf-writeup
 ~/.codex/tools/ctf_health_check.py
 ~/.codex/tools/browser_arm/browser_server.py
+~/.codex/tools/browser_arm/browser_client.py
+~/.ctf-codex-toolkit.json
 /opt/codex-ctf-hooks/*
 /usr/local/bin/ctf-codex
 ```
-
-On Windows, it writes:
-
-```text
-%USERPROFILE%\ctf-codex-wsl.ps1
-%USERPROFILE%\ctf-codex-wsl.cmd
-Desktop\CTF Codex WSL.lnk
-%USERPROFILE%\.ctf-codex-toolkit.json
-```
-
-The Desktop path is resolved through Windows APIs, so redirected Desktop folders such as OneDrive Desktop are supported.
 
 The installer does not copy:
 
@@ -243,14 +241,14 @@ The installer does not copy:
 The CTF root is selected during setup. A challenge named `web_login` creates or uses:
 
 ```text
-<ctf-root>\_work\web_login
+~/ctf-workspaces/_work/web_login
 ```
 
-That directory becomes the working directory for Codex. The intent is to keep each challenge isolated enough for normal CTF work while still being easy to inspect from Windows.
+That directory becomes the working directory for Codex.
 
 Example:
 
-```powershell
+```bash
 ctf-codex-toolkit web_login
 ctf-codex-toolkit web_login -Resume
 ```
@@ -259,21 +257,21 @@ ctf-codex-toolkit web_login -Resume
 
 The bundled CTF skill directories are derived from [ljagiello/ctf-skills](https://github.com/ljagiello/ctf-skills.git). Credit for the upstream CTF skill content belongs to that project and its contributors.
 
-This toolkit packages those skills with Windows/Kali WSL launchers, guard hooks, health checks, snippets, and CTF workflow files.
+This toolkit packages those skills with Kali launchers, guard hooks, health checks, snippets, and CTF workflow files.
 
 Automatic update from upstream:
 
-```powershell
+```bash
 ctf-codex-toolkit update-skills
 ```
 
 Automatic update from a fork or compatible repository:
 
-```powershell
+```bash
 ctf-codex-toolkit update-skills --source https://github.com/<owner>/<repo>.git
 ```
 
-The updater runs inside Kali WSL, clones the source repository, finds skill directories containing `SKILL.md`, and refreshes matching CTF skill directories under:
+The updater runs inside Kali, clones the source repository, finds skill directories containing `SKILL.md`, and refreshes matching CTF skill directories under:
 
 ```text
 ~/.codex/skills/
@@ -281,7 +279,7 @@ The updater runs inside Kali WSL, clones the source repository, finds skill dire
 
 It updates directories named `ctf-*`, `solve-challenge`, and `ctf-writeup`. It does not delete unrelated user skills.
 
-Manual update inside Kali WSL:
+Manual update inside Kali:
 
 ```bash
 tmp="$(mktemp -d)"
@@ -323,15 +321,15 @@ CloakBrowser is installed inside the isolated Browser Arm venv, not globally. On
 
 Skip this dependency:
 
-```powershell
+```bash
 ctf-codex-toolkit setup --no-browser-arm
 ```
 
 ## Health Checks
 
-Run:
+Run inside Kali:
 
-```powershell
+```bash
 ctf-codex-toolkit health
 ```
 
@@ -357,13 +355,13 @@ Current regression checks include:
 
 Prefer the published npm package for normal installation:
 
-```powershell
+```bash
 npm exec --yes --package ctf-codex-toolkit@0.1.0 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:
 
-```powershell
+```bash
 npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolkit setup
 ```
 
@@ -382,7 +380,7 @@ Contributor and release notes live in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Development checks:
 
-```powershell
+```bash
 npm run smoke
 npm pack --dry-run
 ```

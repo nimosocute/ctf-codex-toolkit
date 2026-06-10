@@ -1,7 +1,7 @@
 {
   "name": "ctf-codex-toolkit",
   "version": "0.1.1",
-  "description": "CTF-focused Codex toolkit with skills, guard hooks, health checks, and Windows/Kali WSL launcher.",
+  "description": "CTF-focused Codex toolkit for Kali Linux and Kali WSL with skills, guard hooks, health checks, and launchers.",
   "license": "MIT",
   "type": "commonjs",
   "repository": {
@@ -13,10 +13,10 @@
   },
   "homepage": "https://github.com/nimosocute/ctf-codex-toolkit#readme",
   "bin": {
-    "ctf-codex-toolkit": "bin/ctf-codex-wsl.js",
-    "ctf-codex-workflow": "bin/ctf-codex-wsl.js",
-    "ctf-codex-wsl": "bin/ctf-codex-wsl.js",
-    "ctf-codex": "bin/ctf-codex-wsl.js"
+    "ctf-codex-toolkit": "bin/ctf-codex-toolkit.js",
+    "ctf-codex-workflow": "bin/ctf-codex-toolkit.js",
+    "ctf-codex-wsl": "bin/ctf-codex-toolkit.js",
+    "ctf-codex": "bin/ctf-codex-toolkit.js"
   },
   "files": [
     "bin/",
@@ -40,6 +40,7 @@
     "workflow",
     "wsl",
     "kali",
+    "linux",
     "security"
   ]
 }
