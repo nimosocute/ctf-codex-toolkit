@@ -23,21 +23,37 @@ param(
 $ErrorActionPreference = "Stop"
 $ConfigPath = Join-Path $HOME ".ctf-codex-toolkit.json"
 
-if (-not $CtfRoot) {
-    if (Test-Path -LiteralPath $ConfigPath) {
-        try {
-            $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
-            if ($Config.ctfRoot) { $CtfRoot = [string]$Config.ctfRoot }
-        } catch {
-            Write-Host "[!] Could not read toolkit config: $ConfigPath"
-        }
+function Read-ToolkitConfig {
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        return [pscustomobject]@{}
     }
+    try {
+        return Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    } catch {
+        Write-Host "[!] Could not read toolkit config: $ConfigPath"
+        return [pscustomobject]@{}
+    }
+}
+
+function Write-ToolkitConfig {
+    param([Parameter(Mandatory = $true)][object]$Config)
+
+    try {
+        $Config | ConvertTo-Json | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
+    } catch {
+        Write-Host "[!] Could not update toolkit config: $ConfigPath"
+    }
+}
+
+if (-not $CtfRoot) {
+    $Config = Read-ToolkitConfig
+    if ($Config.ctfRoot) { $CtfRoot = [string]$Config.ctfRoot }
 }
 if (-not $CtfRoot) {
     $DefaultCtfRoot = Join-Path $HOME "ctf-workspaces"
     $InputRoot = Read-Host "CTF workspace root on Windows [$DefaultCtfRoot]"
     if ($InputRoot) { $CtfRoot = $InputRoot } else { $CtfRoot = $DefaultCtfRoot }
-    @{ ctfRoot = $CtfRoot } | ConvertTo-Json | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
+    Write-ToolkitConfig ([pscustomobject]@{ ctfRoot = $CtfRoot })
     Write-Host "[+] wrote $ConfigPath"
 }
 if (-not $Distro) { $Distro = "kali-linux" }
@@ -149,7 +165,9 @@ $WORK_ROOT = Join-Path $CTF_ROOT "_work"
 $WSL_DISTRO = $Distro
 
 try {
-    @{ ctfRoot = $CTF_ROOT } | ConvertTo-Json | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
+    $Config = Read-ToolkitConfig
+    $Config | Add-Member -NotePropertyName "ctfRoot" -NotePropertyValue $CTF_ROOT -Force
+    Write-ToolkitConfig $Config
 } catch {
     Write-Host "[!] Could not update toolkit config: $ConfigPath"
 }
@@ -206,9 +224,26 @@ fi
     $CurrentVersion = $Parts[0]
     $LatestVersion = $Parts[1]
 
-    Write-Host "[+] CTF Codex Toolkit update available: $CurrentVersion -> $LatestVersion"
-    $Choice = Read-Host "Update now? [U]pdate/[S]kip"
-    if ($Choice -match '^(u|update)$') {
+    $Config = Read-ToolkitConfig
+    if ($Config.skippedToolkitVersion -and [string]$Config.skippedToolkitVersion -eq $LatestVersion) {
+        return
+    }
+
+    $Esc = [char]27
+    $Sparkle = [char]0x2728
+    Write-Host ""
+    Write-Host "$Esc[93m$Sparkle$Esc[0m $Esc[97mUpdate available!$Esc[0m $Esc[90m$CurrentVersion -> $LatestVersion$Esc[0m"
+    Write-Host ""
+    Write-Host "$Esc[90mRelease notes: https://github.com/nimosocute/ctf-codex-toolkit/releases/latest$Esc[0m"
+    Write-Host ""
+    Write-Host "$Esc[96m> 1. Update now$Esc[0m $Esc[90m(runs ``npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools``)$Esc[0m"
+    Write-Host "  2. Skip"
+    Write-Host "  3. Skip until next version"
+    Write-Host ""
+    $Choice = Read-Host "Press enter to update, or choose 1/2/3"
+    if ([string]::IsNullOrWhiteSpace($Choice)) { $Choice = "1" }
+
+    if ($Choice -match '^(1|u|update)$') {
         Write-Host "[+] Updating CTF Codex Toolkit to $LatestVersion..."
         & wsl.exe -d $Distro -- bash -lc "npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools"
         if ($LASTEXITCODE -ne 0) {
@@ -216,6 +251,10 @@ fi
             exit $LASTEXITCODE
         }
         Write-Host "[+] Update complete. Continuing launcher..."
+    } elseif ($Choice -match '^(3|until|skip until next version)$') {
+        $Config | Add-Member -NotePropertyName "skippedToolkitVersion" -NotePropertyValue $LatestVersion -Force
+        Write-ToolkitConfig $Config
+        Write-Host "[=] Skipped toolkit update until a version newer than $LatestVersion is available."
     } else {
         Write-Host "[=] Skipped toolkit update."
     }
