@@ -7,6 +7,7 @@ import threading
 from pathlib import Path
 import site
 import re
+import secrets
 
 LOCAL_SITE = (
     Path(__file__).resolve().parent
@@ -25,6 +26,23 @@ HOST = "127.0.0.1"
 PORT = int(os.environ.get("BROWSER_PORT", 9222))
 WORKDIR = Path(os.environ.get("BROWSER_WORKDIR", os.getcwd())).resolve()
 WORKDIR.mkdir(parents=True, exist_ok=True)
+TOKEN_PATH = Path(os.environ.get("BROWSER_TOKEN_FILE", WORKDIR / ".browser_token")).resolve()
+
+def load_or_create_token():
+    env_token = os.environ.get("BROWSER_TOKEN", "").strip()
+    if env_token:
+        return env_token
+    if TOKEN_PATH.exists():
+        return TOKEN_PATH.read_text(encoding="utf-8").strip()
+    token = secrets.token_urlsafe(32)
+    TOKEN_PATH.write_text(token + "\n", encoding="utf-8")
+    try:
+        TOKEN_PATH.chmod(0o600)
+    except Exception:
+        pass
+    return token
+
+BROWSER_TOKEN = load_or_create_token()
 
 logs = {"console": [], "network": [], "console_clear": True, "network_clear": True}
 watch = {"enabled": False, "path": str(WORKDIR / "latest.png"), "interval": 0.5, "last": 0.0}
@@ -36,7 +54,7 @@ def on_console(msg):
             "text": msg.text,
             "location": str(msg.location) if hasattr(msg, "location") else ""
         })
-    except:
+    except Exception:
         pass
 
 def on_response(response):
@@ -48,7 +66,7 @@ def on_response(response):
             "resource_type": response.request.resource_type,
             "method": response.request.method
         })
-    except:
+    except Exception:
         pass
 
 def on_dialog(dialog):
@@ -56,7 +74,7 @@ def on_dialog(dialog):
     try:
         logs["console"].append({"type": "dialog", "text": f"Dialog [{dialog.type}]: {dialog.message}", "location": "browser"})
         dialog.accept()
-    except:
+    except Exception:
         pass
 
 def clean_html(html_content):
@@ -325,6 +343,12 @@ def main():
                 continue
 
             msg_id = msg.get("id")
+            if msg.get("token") != BROWSER_TOKEN:
+                resp = json.dumps({"id": msg_id, "ok": False, "error": "Unauthorized browser control request"}) + "\n"
+                conn.sendall(resp.encode())
+                conn.close()
+                continue
+
             try:
                 result = handle(page, msg)
                 if result == "__CLOSE__":

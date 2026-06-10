@@ -26,3 +26,33 @@ jobs:
 
       - name: Verify package contents
         run: npm pack --dry-run
+
+  linux-static:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Python syntax checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for path in Path("payload").rglob("*.py"):
+              compile(path.read_text(encoding="utf-8"), str(path), "exec")
+          PY
+
+      - name: Node syntax checks
+        run: |
+          node --check bin/ctf-codex-toolkit.js
+          node --check scripts/smoke-test.js
+
+      - name: Shell syntax checks
+        run: bash -n payload/usr-local-bin/ctf-codex payload/opt-hooks/ctf-command-guard
+
+      - name: Smoke checks on Linux
+        run: PYTHON=python3 npm run smoke

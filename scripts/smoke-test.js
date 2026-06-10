@@ -2,6 +2,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const childProcess = require("node:child_process");
+const os = require("node:os");
 
 const root = path.resolve(__dirname, "..");
 const required = [
@@ -157,6 +158,63 @@ if (
 ) {
   console.error(help.stdout);
   console.error(help.stderr);
+  process.exit(1);
+}
+
+const python = process.env.PYTHON || "python";
+const hookPath = path.join(root, "payload/opt-hooks/ctf_pre_tool_guard.py");
+const guardTmp = fs.mkdtempSync(path.join(os.tmpdir(), "ctf-guard-"));
+const ctfRoot = path.join(guardTmp, "ctf");
+const challengeRoot = path.join(ctfRoot, "_work", "chal");
+fs.mkdirSync(challengeRoot, { recursive: true });
+
+function runGuard(event) {
+  return childProcess.spawnSync(python, [hookPath], {
+    cwd: challengeRoot,
+    env: {
+      ...process.env,
+      CTF_ROOT: ctfRoot,
+      CTF_WORK_ROOT: path.join(ctfRoot, "_work")
+    },
+    input: JSON.stringify(event),
+    encoding: "utf8"
+  });
+}
+
+const traversalPatch = runGuard({
+  tool_name: "apply_patch",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "*** Begin Patch\n*** Add File: foo/../../outside\n+bad\n*** End Patch\n"
+  }
+});
+if (traversalPatch.status === 0 || !`${traversalPatch.stderr}${traversalPatch.stdout}`.includes("outside current challenge workspace")) {
+  console.error("pre-tool guard must reject normalized apply_patch path traversal");
+  console.error(traversalPatch.stdout);
+  console.error(traversalPatch.stderr);
+  process.exit(1);
+}
+
+const safePatch = runGuard({
+  tool_name: "apply_patch",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "*** Begin Patch\n*** Add File: work/note.txt\n+ok\n*** End Patch\n"
+  }
+});
+if (safePatch.status !== 0) {
+  console.error("pre-tool guard rejected a safe workspace patch");
+  console.error(safePatch.stdout);
+  console.error(safePatch.stderr);
+  process.exit(1);
+}
+
+fs.rmSync(guardTmp, { recursive: true, force: true });
+
+const browserServer = fs.readFileSync(path.join(root, "payload/home-codex/tools/browser_arm/browser_server.py"), "utf8");
+const browserClient = fs.readFileSync(path.join(root, "payload/home-codex/tools/browser_arm/browser_client.py"), "utf8");
+if (!browserServer.includes("BROWSER_TOKEN") || !browserServer.includes("Unauthorized browser control request") || !browserClient.includes("load_token")) {
+  console.error("Browser Arm client/server must enforce a local shared token");
   process.exit(1);
 }
 

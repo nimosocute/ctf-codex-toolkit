@@ -90,7 +90,7 @@ npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
 For a pinned install:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.19 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.20 -- ctf-codex-toolkit setup
 ```
 
 Or install the CLI globally inside Kali:
@@ -308,6 +308,14 @@ The installer does not copy:
 - private keys
 - runtime SQLite state
 
+The installer writes hook executables under `/opt/codex-ctf-hooks` and symlinks them into `~/.codex/hooks`. It intentionally does not rewrite `~/.codex/config.toml`, because provider and runtime config is user-owned. Verify that your Codex runtime loads hooks from `~/.codex/hooks`; if your Codex build requires explicit hook registration in `config.toml`, register:
+
+```text
+/opt/codex-ctf-hooks/ctf_pre_tool_guard.py
+/opt/codex-ctf-hooks/ctf_post_tool_guard.py
+/opt/codex-ctf-hooks/ctf_stop_guard.py
+```
+
 ## Workspace Model
 
 The CTF root is selected during setup. A challenge named `web_login` creates or uses:
@@ -391,6 +399,8 @@ CloakBrowser is a MIT-licensed browser automation project from [CloakHQ/CloakBro
 
 CloakBrowser is installed inside the isolated Browser Arm venv, not globally. On first use, CloakBrowser may download and cache its Chromium binary.
 
+The Browser Arm server binds to `127.0.0.1` and requires a local shared token. By default the server creates `.browser_token` in `BROWSER_WORKDIR` and the bundled client reads it automatically. You can also set `BROWSER_TOKEN` or `BROWSER_TOKEN_FILE` explicitly when starting both processes.
+
 Minimal Kali installs may not include all Chromium shared libraries. If `ctf-codex-toolkit health` reports a Browser Arm error such as `libnspr4.so: cannot open shared object file`, install the browser runtime dependencies:
 
 ```bash
@@ -417,9 +427,9 @@ On minimal Kali, `setup` installs and verifies the inventory tools first, includ
 
 ## Safety Model
 
-The pre-tool guard blocks high-risk automated attack commands and broad candidate searches while allowing small deterministic loops.
+The pre-tool guard blocks high-risk automated attack commands and broad candidate searches while allowing small deterministic loops. Path containment checks canonicalize paths before comparison, so `..` traversal through patch/edit/write targets is rejected before tools run.
 
-This is defense-in-depth for common mistakes. It is not a sandbox, not a security boundary, and not a substitute for running Codex inside a scoped CTF workspace.
+This is defense-in-depth for common mistakes. It is not a sandbox, not a security boundary, and not a substitute for running Codex inside a scoped CTF workspace. Static script scanning is best-effort: inline `python -c`/`node -e` payloads and script files are inspected, but code supplied through pipes or heredocs is not fully parsed before interpreter startup.
 
 Current regression checks include:
 
@@ -436,7 +446,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.19 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.20 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:

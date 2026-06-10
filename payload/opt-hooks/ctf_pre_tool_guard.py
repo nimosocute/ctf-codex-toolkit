@@ -13,7 +13,8 @@ CTF_ROOT_DISPLAY = os.environ.get("CTF_ROOT") or os.environ.get("CTF_CODEX_ROOT"
 CTF_ROOT_DISPLAY = CTF_ROOT_DISPLAY.replace("\\", "/").rstrip("/")
 CTF_ROOT_LOWER = CTF_ROOT_DISPLAY.lower()
 WORK_ROOT_DISPLAY = (os.environ.get("CTF_WORK_ROOT") or f"{CTF_ROOT_DISPLAY}/_work").replace("\\", "/").rstrip("/") + "/"
-WORK_ROOT_LOWER = WORK_ROOT_DISPLAY.lower()
+CTF_ROOT_PATH = Path(CTF_ROOT_DISPLAY).expanduser().resolve(strict=False)
+WORK_ROOT_PATH = Path(WORK_ROOT_DISPLAY).expanduser().resolve(strict=False)
 DEFAULT_TIMEOUT_SECONDS = 120
 MAX_SCRIPT_BYTES = 512_000
 MAX_CANDIDATE_ATTEMPTS = 10_000
@@ -98,22 +99,33 @@ def deny(msg: str) -> None:
     sys.exit(2)
 
 
-def as_lower_path(path: Path) -> str:
-    return str(path).replace("\\", "/").lower().rstrip("/")
+def as_display_path(path: Path) -> str:
+    return str(path).replace("\\", "/").rstrip("/")
 
 
-def challenge_root_for(cwd: Path) -> str:
-    lower = as_lower_path(cwd)
-    if not lower.startswith(WORK_ROOT_LOWER):
-        return ""
-    rest = lower[len(WORK_ROOT_LOWER):].strip("/")
+def path_inside(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def canonical_path(path: Path) -> Path:
+    return path.expanduser().resolve(strict=False)
+
+
+def challenge_root_for(cwd: Path) -> Path | None:
+    resolved = canonical_path(cwd)
+    if not path_inside(resolved, WORK_ROOT_PATH):
+        return None
+    rest = resolved.relative_to(WORK_ROOT_PATH).parts
     if not rest:
-        return ""
-    challenge = rest.split("/", 1)[0]
-    return (WORK_ROOT_LOWER + challenge).rstrip("/")
+        return None
+    return WORK_ROOT_PATH / rest[0]
 
 
-def ensure_workspace(cwd: Path) -> str:
+def ensure_workspace(cwd: Path) -> Path:
     root = challenge_root_for(cwd)
     if not root:
         deny(f"Blocked: command outside {WORK_ROOT_DISPLAY}<challenge> workspace.")
@@ -127,12 +139,11 @@ def workspace_path(path: str, cwd: Path) -> Path:
     return p
 
 
-def ensure_path_inside_workspace(path: str, cwd: Path, root_lower: str, where: str) -> None:
-    p = workspace_path(path, cwd)
-    lower = as_lower_path(p)
-    if lower == CTF_ROOT_LOWER or lower.startswith(CTF_ROOT_LOWER + "/") and not lower.startswith(WORK_ROOT_LOWER):
+def ensure_path_inside_workspace(path: str, cwd: Path, root_path: Path, where: str) -> None:
+    p = canonical_path(workspace_path(path, cwd))
+    if p == CTF_ROOT_PATH or path_inside(p, CTF_ROOT_PATH) and not path_inside(p, WORK_ROOT_PATH):
         deny(f"Blocked: {where} targets {CTF_ROOT_DISPLAY} outside _work: {path}")
-    if not (lower == root_lower or lower.startswith(root_lower + "/")):
+    if not (p == root_path or path_inside(p, root_path)):
         deny(f"Blocked: {where} outside current challenge workspace: {path}")
 
 
@@ -498,13 +509,9 @@ def scan_text_payload(text: str, where: str, python_ast: bool = False) -> None:
         scan_python_ast(text, where)
 
 
-def scan_script(path: Path, root_lower: str) -> None:
-    try:
-        resolved = path.resolve()
-    except Exception:
-        resolved = path
-    lower = as_lower_path(resolved)
-    if not (lower == root_lower or lower.startswith(root_lower + "/")):
+def scan_script(path: Path, root_path: Path) -> None:
+    resolved = canonical_path(path)
+    if not (resolved == root_path or path_inside(resolved, root_path)):
         deny(f"Blocked: script path outside current challenge workspace: {path}")
     if not resolved.exists() or not resolved.is_file():
         return
@@ -625,7 +632,7 @@ def guard_network(args: list[str], command: str, cwd: Path) -> None:
             deny(f"Blocked: network target `{host}` with no declared scope. Add `scope.txt`/`target.txt`, set CTF_SCOPE, or ask user explicitly.")
 
 
-def private_material_hit(token: str, cwd: Path, root_lower: str) -> str:
+def private_material_hit(token: str, cwd: Path, root_path: Path) -> str:
     raw = token.strip().strip("'\"<>()[]{}")
     if not raw or raw == "--" or raw.startswith("-") or "://" in raw:
         return ""
@@ -637,24 +644,24 @@ def private_material_hit(token: str, cwd: Path, root_lower: str) -> str:
     p = Path(expanded)
     if not p.is_absolute():
         p = cwd / p
-    lower = as_lower_path(p)
-    if lower == root_lower or lower.startswith(root_lower + "/"):
+    resolved = canonical_path(p)
+    if resolved == root_path or path_inside(resolved, root_path):
         return ""
-    return raw if PRIVATE_MATERIAL_RE.search(lower) else ""
+    return raw if PRIVATE_MATERIAL_RE.search(as_display_path(resolved)) else ""
 
-def command_private_material_hits(args: list[str], command: str, cwd: Path, root_lower: str) -> list[str]:
+def command_private_material_hits(args: list[str], command: str, cwd: Path, root_path: Path) -> list[str]:
     hits: list[str] = []
     for arg in args:
-        hit = private_material_hit(arg, cwd, root_lower)
+        hit = private_material_hit(arg, cwd, root_path)
         if hit:
             hits.append(hit)
     for raw in re.findall(r"(?:~|\$HOME|\$\{HOME\}|/home/[^/\s'\";|&<>]+)(?:/[^\s'\";|&<>]+)+", command):
-        hit = private_material_hit(raw, cwd, root_lower)
+        hit = private_material_hit(raw, cwd, root_path)
         if hit:
             hits.append(hit)
     return sorted(set(hits))
 
-def guard_secrets(command: str, cwd: Path, root_lower: str) -> None:
+def guard_secrets(command: str, cwd: Path, root_path: Path) -> None:
     for segment in split_shell_segments(command):
         raw_args = parse_args(segment)
         args = unwrap_timeout(raw_args)
@@ -663,17 +670,17 @@ def guard_secrets(command: str, cwd: Path, root_lower: str) -> None:
         if Path(args[0]).name in {"bash", "sh", "zsh"}:
             for i, arg in enumerate(args[1:], start=1):
                 if arg in {"-c", "-lc"} and i + 1 < len(args):
-                    guard_secrets(args[i + 1], cwd, root_lower)
+                    guard_secrets(args[i + 1], cwd, root_path)
                     break
-        hits = command_private_material_hits(args, segment, cwd, root_lower)
+        hits = command_private_material_hits(args, segment, cwd, root_path)
         if hits:
             deny("Blocked: command references private operator material outside the challenge workspace: " + ", ".join(hits[:5]))
 
-def guard_bash(command: str, cwd: Path, root_lower: str, depth: int = 0, timeout_ok: bool = False) -> None:
+def guard_bash(command: str, cwd: Path, root_path: Path, depth: int = 0, timeout_ok: bool = False) -> None:
     regex_block(command, UNCONDITIONAL_SHELL_PATTERNS, "command", "candidate-loop command")
     if CANDIDATE_HINT_RE.search(command):
         regex_block(command, CONDITIONAL_LOOP_PATTERNS, "command", "candidate-loop command")
-    guard_secrets(command, cwd, root_lower)
+    guard_secrets(command, cwd, root_path)
 
     escaped_root = re.escape(CTF_ROOT_LOWER)
     root_write_pattern = rf">\s*{escaped_root}(/|\s|$)|\b(cp|mv|unzip|tar|7z)\b.*\s{escaped_root}(/|\s|$)"
@@ -693,8 +700,8 @@ def guard_bash(command: str, cwd: Path, root_lower: str, depth: int = 0, timeout
         if args[0] == "cd":
             target = args[1] if len(args) > 1 else str(Path.home())
             new_cwd = workspace_path(target, current_cwd)
-            ensure_path_inside_workspace(str(new_cwd), current_cwd, root_lower, "cd")
-            current_cwd = new_cwd
+            ensure_path_inside_workspace(str(new_cwd), current_cwd, root_path, "cd")
+            current_cwd = canonical_path(new_cwd)
             continue
 
         guard_network(args, segment, current_cwd)
@@ -708,7 +715,7 @@ def guard_bash(command: str, cwd: Path, root_lower: str, depth: int = 0, timeout
                     shell_payload = args[i + 1]
                     break
         if shell_payload is not None:
-            guard_bash(shell_payload, current_cwd, root_lower, depth + 1, timeout_ok=segment_timeout_ok)
+            guard_bash(shell_payload, current_cwd, root_path, depth + 1, timeout_ok=segment_timeout_ok)
             continue
 
         payload = inline_payload_from_args(args)
@@ -716,7 +723,7 @@ def guard_bash(command: str, cwd: Path, root_lower: str, depth: int = 0, timeout
             text, where = payload
             scan_text_payload(text, where, python_ast=where.startswith("python"))
         for script_path in script_paths_from_args(args, current_cwd):
-            scan_script(script_path, root_lower)
+            scan_script(script_path, root_path)
 
 
 def iter_tool_fields(value, parents=()):
@@ -739,7 +746,7 @@ def looks_like_content_key(key: str) -> bool:
     return key.lower().replace("-", "_") in CONTENT_KEYS
 
 
-def guard_patch(command: str, tool_input: dict, cwd: Path, root_lower: str) -> None:
+def guard_patch(command: str, tool_input: dict, cwd: Path, root_path: Path) -> None:
     saw_path = False
     saw_patch_envelope = False
 
@@ -750,7 +757,7 @@ def guard_patch(command: str, tool_input: dict, cwd: Path, root_lower: str) -> N
             path = match.group(1) or match.group(2)
             if path:
                 saw_path = True
-                ensure_path_inside_workspace(path, cwd, root_lower, "edit/apply_patch")
+                ensure_path_inside_workspace(path, cwd, root_path, "edit/apply_patch")
         if "*** Begin Patch" in command and not PATCH_PATH_RE.search(command):
             deny("Blocked: apply_patch without parseable file target.")
 
@@ -761,7 +768,7 @@ def guard_patch(command: str, tool_input: dict, cwd: Path, root_lower: str) -> N
         if looks_like_path_key(key):
             if value.strip():
                 saw_path = True
-                ensure_path_inside_workspace(value, cwd, root_lower, f"structured edit field {'.'.join(parents)}")
+                ensure_path_inside_workspace(value, cwd, root_path, f"structured edit field {'.'.join(parents)}")
         elif looks_like_content_key(key):
             if value.strip():
                 scan_text_payload(value, f"structured edit field {'.'.join(parents)}", python_ast=value.lstrip().startswith(("import ", "from ", "for ", "while ", "def ", "class ")))
@@ -780,12 +787,12 @@ tool_name = event.get("tool_name", "")
 tool_input = event.get("tool_input", {}) if isinstance(event.get("tool_input", {}), dict) else {}
 cmd = tool_input.get("command", "") or raw
 cwd = Path(event.get("cwd") or os.getcwd())
-root_lower = ensure_workspace(cwd)
+root_path = ensure_workspace(cwd)
 
 if tool_name in {"Bash", ""}:
-    guard_bash(cmd, cwd, root_lower)
+    guard_bash(cmd, cwd, root_path)
 elif tool_name in {"apply_patch", "Edit", "Write"}:
-    guard_patch(cmd, tool_input, cwd, root_lower)
+    guard_patch(cmd, tool_input, cwd, root_path)
 else:
     pass
 
