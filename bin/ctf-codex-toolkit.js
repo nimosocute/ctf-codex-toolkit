@@ -11,6 +11,7 @@ const PAYLOAD = path.join(ROOT, "payload");
 const DEFAULT_SKILLS_SOURCE = "https://github.com/ljagiello/ctf-skills.git";
 const CLOAKBROWSER_VERSION = "0.3.31";
 const CONFIG_PATH = path.join(os.homedir(), ".ctf-codex-toolkit.json");
+const PACKAGE_VERSION = require(path.join(ROOT, "package.json")).version;
 
 function usage() {
   console.log(`ctf-codex-toolkit
@@ -298,7 +299,7 @@ PY
     console.log("[=] Skipped Browser Arm venv install (--no-browser-arm).");
   }
 
-  writeConfig({ ...readConfig(), ctfRoot });
+  writeConfig({ ...readConfig(), ctfRoot, toolkitVersion: PACKAGE_VERSION });
   installWindowsLaunchersFromWsl();
   console.log("[+] Install complete.");
 }

@@ -47,6 +47,58 @@ $CTF_ROOT  = $CtfRoot
 $WORK_ROOT = Join-Path $CTF_ROOT "_work"
 $WSL_DISTRO = $Distro
 
+function Invoke-ToolkitUpdateCheck {
+    param([Parameter(Mandatory = $true)][string]$Distro)
+
+    $CheckScript = @'
+set -euo pipefail
+current="$(node - <<'NODE'
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+try {
+  const config = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.ctf-codex-toolkit.json'), 'utf8'));
+  process.stdout.write(config.toolkitVersion || '0.0.0');
+} catch {
+  process.stdout.write('0.0.0');
+}
+NODE
+)"
+latest="$(npm view ctf-codex-toolkit version 2>/dev/null || true)"
+if [ -n "$latest" ] && [ "$latest" != "$current" ]; then
+  printf '%s|%s\n' "$current" "$latest"
+fi
+'@
+
+    try {
+        $Result = (& wsl.exe -d $Distro -- bash -lc $CheckScript 2>$null).Trim()
+    } catch {
+        return
+    }
+
+    if (-not $Result -or -not $Result.Contains("|")) { return }
+
+    $Parts = $Result -split '\|', 2
+    $CurrentVersion = $Parts[0]
+    $LatestVersion = $Parts[1]
+
+    Write-Host "[+] CTF Codex Toolkit update available: $CurrentVersion -> $LatestVersion"
+    $Choice = Read-Host "Update now? [U]pdate/[S]kip"
+    if ($Choice -match '^(u|update)$') {
+        Write-Host "[+] Updating CTF Codex Toolkit to $LatestVersion..."
+        & wsl.exe -d $Distro -- bash -lc "npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Toolkit update failed."
+            exit $LASTEXITCODE
+        }
+        Write-Host "[+] Update complete. Continuing launcher..."
+    } else {
+        Write-Host "[=] Skipped toolkit update."
+    }
+}
+
+Invoke-ToolkitUpdateCheck -Distro $WSL_DISTRO
+
 function Write-Utf8NoBomLf {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
