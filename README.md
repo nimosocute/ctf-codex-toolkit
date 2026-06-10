@@ -22,13 +22,14 @@ The intended workflow is:
 
 ```text
 Kali shell
-  -> npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
+  -> npm install -g ctf-codex-toolkit
+  -> ctf-codex-toolkit setup
   -> auto-detect Kali native vs Kali WSL
   -> ~/.codex CTF payload
   -> required CTF tools from tools_inventory.md
   -> /opt/codex-ctf-hooks guard hooks
   -> WSL only: Windows launcher + Desktop shortcut
-  -> ctf-codex-toolkit <challenge>
+  -> ctf-codex <challenge>
   -> ~/ctf-workspaces/_work/<challenge>
   -> codex inside Kali
 ```
@@ -63,7 +64,7 @@ This repository packages the operational pieces needed to run Codex as a CTF ass
 | Health checks | One-shot environment inventory for CTF tools, providers, Browser Arm, hooks |
 | CTF tools | Required bootstrap for the tools listed in `tools_inventory.md` |
 | Browser support | Optional isolated Browser Arm venv using pinned `cloakbrowser==0.3.31` |
-| Launchers | `ctf-codex-toolkit <challenge>` and `/usr/local/bin/ctf-codex <challenge>` |
+| Launchers | `/usr/local/bin/ctf-codex <challenge>` for daily use; `ctf-codex-toolkit <challenge>` also works after a global npm install |
 | WSL integration | When run inside Kali WSL, writes the Windows `.ps1`/`.cmd` launcher and Desktop shortcut |
 | Workspace layout | Per-challenge directories under a user-selected CTF root |
 
@@ -86,35 +87,53 @@ Verify Codex CLI is available inside Kali:
 codex --version
 ```
 
-Run setup:
-
-```bash
-npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
-```
-
-For a pinned install:
-
-```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.22 -- ctf-codex-toolkit setup
-```
-
-Or install the CLI globally inside Kali:
+Recommended for daily use: install the CLI globally inside Kali, then run setup:
 
 ```bash
 npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
 
-Start a challenge session:
+If global npm install fails with a permission error, use a user-owned npm prefix inside Kali:
 
 ```bash
-ctf-codex-toolkit my_challenge
+npm config set prefix ~/.npm-global
+mkdir -p ~/.npm-global/bin
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+npm install -g ctf-codex-toolkit
+ctf-codex-toolkit setup
+```
+
+For a pinned global install:
+
+```bash
+npm install -g ctf-codex-toolkit@0.1.22
+ctf-codex-toolkit setup
+```
+
+One-shot setup without a global install also works, but management commands must be run through `npm exec` again:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
+```
+
+Start a challenge session after setup:
+
+```bash
+ctf-codex my_challenge
 ```
 
 Resume the last session for a challenge:
 
 ```bash
-ctf-codex-toolkit my_challenge -Resume
+ctf-codex my_challenge -Resume
+```
+
+If you installed globally, this also works:
+
+```bash
+ctf-codex-toolkit my_challenge
 ```
 
 Install directly from GitHub when testing unreleased changes:
@@ -185,8 +204,8 @@ Kali native installs skip those Windows files automatically.
 Use a non-default CTF root:
 
 ```bash
-ctf-codex-toolkit setup --ctf-root ~/ctf
-ctf-codex-toolkit my_challenge --ctf-root ~/ctf
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --ctf-root ~/ctf
+ctf-codex my_challenge --ctf-root ~/ctf
 ```
 
 During `setup` or `install`, the CLI asks where to place the CTF workspace root and stores the answer in:
@@ -213,14 +232,14 @@ Explicit CLI flags take precedence over environment variables and saved config.
 
 ```mermaid
 flowchart LR
-    A["Kali shell"] --> B["npm exec ctf-codex-toolkit setup"]
+    A["Kali shell"] --> B["npm install -g ctf-codex-toolkit + setup"]
     B --> C{"Kali WSL?"}
     C -->|No| D["Install Kali-native toolkit"]
     C -->|Yes| E["Install Kali toolkit + Windows launchers"]
     D --> F["~/.codex + /opt hooks + ctf-codex"]
     E --> F
     F --> G["Run health checks"]
-    G --> H["ctf-codex-toolkit <challenge>"]
+    G --> H["ctf-codex <challenge>"]
     H --> I["~/ctf-workspaces/_work/<challenge>"]
     I --> J["codex inside Kali"]
 ```
@@ -251,6 +270,8 @@ After setup, challenge sessions run under:
 
 ## Command Reference
 
+Global install inside Kali is recommended for regular use, because it makes all `ctf-codex-toolkit ...` management commands available directly. If you used one-shot `npm exec`, run management commands through `npm exec` again. The installed daily challenge launcher is always `ctf-codex`.
+
 ```text
 ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
@@ -258,8 +279,14 @@ ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
-ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]
 ctf-codex <challenge> [-Resume] [--ctf-root <path>]
+ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]  # only if globally installed
+```
+
+Example without a global install:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit health
 ```
 
 Compatibility aliases:
@@ -543,7 +570,8 @@ Luồng sử dụng chính:
 
 ```text
 Kali shell
-  -> npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
+  -> npm install -g ctf-codex-toolkit
+  -> ctf-codex-toolkit setup
   -> tự nhận diện Kali native hay Kali WSL
   -> ~/.codex CTF payload
   -> công cụ CTF từ tools_inventory.md
@@ -586,7 +614,7 @@ Repo này đóng gói các phần cần thiết để chạy Codex như một tr
 | Health checks | Kiểm tra nhanh payload, tools, provider readiness, Browser Arm, hooks |
 | CTF tools | Bootstrap các tool trong `tools_inventory.md` |
 | Browser support | Browser Arm tùy chọn, dùng venv riêng với `cloakbrowser==0.3.31` |
-| Launchers | `ctf-codex-toolkit <challenge>` và `/usr/local/bin/ctf-codex <challenge>` |
+| Launchers | `/usr/local/bin/ctf-codex <challenge>` cho sử dụng hằng ngày; `ctf-codex-toolkit <challenge>` cũng dùng được nếu đã cài npm global |
 | WSL integration | Khi chạy trong Kali WSL, tạo Windows `.ps1`/`.cmd` launcher và Desktop shortcut |
 | Workspace layout | Mỗi challenge có thư mục riêng dưới CTF root |
 
@@ -611,35 +639,53 @@ Kiểm tra Codex CLI có sẵn trong Kali:
 codex --version
 ```
 
-Chạy setup:
-
-```bash
-npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
-```
-
-Cài theo version cố định:
-
-```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.22 -- ctf-codex-toolkit setup
-```
-
-Nếu muốn cài CLI global trong Kali:
+Cách khuyến nghị để dùng hằng ngày: cài CLI global bên trong Kali, rồi chạy setup:
 
 ```bash
 npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
 
-Mở một challenge:
+Nếu cài global bị lỗi quyền, dùng npm prefix nằm trong home của user Kali:
 
 ```bash
-ctf-codex-toolkit my_challenge
+npm config set prefix ~/.npm-global
+mkdir -p ~/.npm-global/bin
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+npm install -g ctf-codex-toolkit
+ctf-codex-toolkit setup
+```
+
+Cài global theo version cố định:
+
+```bash
+npm install -g ctf-codex-toolkit@0.1.22
+ctf-codex-toolkit setup
+```
+
+Setup one-shot không cài global vẫn dùng được, nhưng các lệnh quản trị sau đó phải chạy lại qua `npm exec`:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
+```
+
+Mở một challenge sau khi setup:
+
+```bash
+ctf-codex my_challenge
 ```
 
 Resume session cuối của challenge:
 
 ```bash
-ctf-codex-toolkit my_challenge -Resume
+ctf-codex my_challenge -Resume
+```
+
+Nếu đã cài global, lệnh này cũng dùng được:
+
+```bash
+ctf-codex-toolkit my_challenge
 ```
 
 Cài trực tiếp từ GitHub khi test thay đổi chưa release:
@@ -714,8 +760,8 @@ Kali native sẽ bỏ qua các file Windows này.
 Dùng CTF root khác mặc định:
 
 ```bash
-ctf-codex-toolkit setup --ctf-root ~/ctf
-ctf-codex-toolkit my_challenge --ctf-root ~/ctf
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --ctf-root ~/ctf
+ctf-codex my_challenge --ctf-root ~/ctf
 ```
 
 Trong lúc `setup` hoặc `install`, CLI hỏi nơi đặt CTF workspace root và lưu vào:
@@ -744,14 +790,14 @@ CLI flags có độ ưu tiên cao hơn environment variables và config đã lư
 
 ```mermaid
 flowchart LR
-    A["Kali shell"] --> B["npm exec ctf-codex-toolkit setup"]
+    A["Kali shell"] --> B["npm install -g ctf-codex-toolkit + setup"]
     B --> C{"Kali WSL?"}
     C -->|No| D["Cài Kali-native toolkit"]
     C -->|Yes| E["Cài Kali toolkit + Windows launchers"]
     D --> F["~/.codex + /opt hooks + ctf-codex"]
     E --> F
     F --> G["Chạy health checks"]
-    G --> H["ctf-codex-toolkit <challenge>"]
+    G --> H["ctf-codex <challenge>"]
     H --> I["~/ctf-workspaces/_work/<challenge>"]
     I --> J["Codex bên trong Kali"]
 ```
@@ -784,6 +830,8 @@ Sau setup, session challenge chạy dưới:
 
 ### Lệnh thường dùng
 
+Cài global trong Kali là cách khuyến nghị nếu dùng thường xuyên, vì mọi lệnh quản trị `ctf-codex-toolkit ...` sẽ gọi trực tiếp được. Nếu dùng one-shot `npm exec`, các lệnh quản trị cần chạy qua `npm exec` lại. Launcher mở bài hằng ngày luôn được cài là `ctf-codex`.
+
 ```text
 ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
@@ -791,8 +839,14 @@ ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
-ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]
 ctf-codex <challenge> [-Resume] [--ctf-root <path>]
+ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]  # chỉ khi đã cài global
+```
+
+Ví dụ không cài global:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit health
 ```
 
 Alias tương thích:
