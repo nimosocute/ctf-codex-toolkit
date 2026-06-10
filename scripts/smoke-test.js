@@ -105,6 +105,16 @@ for (const rel of ["README.md", "package.json", "bin/ctf-codex-toolkit.js"]) {
   }
 }
 
+const windowsLauncher = fs.readFileSync(path.join(root, "payload/windows-launchers/ctf-codex-wsl.ps1"), "utf8");
+if (!windowsLauncher.includes("$CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot")) {
+  console.error("Windows launcher must resolve CTF root to an absolute path before deriving _work paths");
+  process.exit(1);
+}
+if (!windowsLauncher.includes("function Quote-BashArgument") || !windowsLauncher.includes("Quote-BashArgument $GuardPathWsl")) {
+  console.error("Windows launcher must bash-quote WSL guard paths before chmod");
+  process.exit(1);
+}
+
 const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-codex-toolkit.js"), "--help"], {
   encoding: "utf8"
 });

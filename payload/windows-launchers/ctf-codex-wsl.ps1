@@ -43,7 +43,26 @@ if (-not $CtfRoot) {
 }
 if (-not $Distro) { $Distro = "kali-linux" }
 
-$CTF_ROOT  = $CtfRoot
+function Resolve-WindowsFullPath {
+    param([Parameter(Mandatory = $true)][string]$InputPath)
+
+    $expanded = [Environment]::ExpandEnvironmentVariables($InputPath)
+    if ($expanded -eq "~") {
+        $expanded = $HOME
+    } elseif ($expanded.StartsWith("~\") -or $expanded.StartsWith("~/")) {
+        $expanded = Join-Path $HOME $expanded.Substring(2)
+    }
+
+    return [System.IO.Path]::GetFullPath($expanded)
+}
+
+function Quote-BashArgument {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    return "'" + $Value.Replace("'", "'\''") + "'"
+}
+
+$CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot
 $WORK_ROOT = Join-Path $CTF_ROOT "_work"
 $WSL_DISTRO = $Distro
 
@@ -143,6 +162,10 @@ if (-not $WSL_CTF_ROOT) {
 
 if (-not $Challenge) { $Challenge = Read-Host "Challenge name (folder under _work)" }
 if (-not $Challenge) { Write-Error "No challenge name given. Aborting."; exit 1 }
+if ($Challenge -match '\.\.|[\\/]') {
+    Write-Error "Invalid challenge name. Use a single folder name under _work."
+    exit 2
+}
 
 $WORK  = Join-Path $WORK_ROOT $Challenge
 $isNew = -not (Test-Path $WORK)
@@ -321,10 +344,9 @@ Write-Host "[+] Codex data/logs are under WSL: ~/.codex/"
 Write-Host "[+] Command guard: $WSL_WORK/.codex_guard/ctf-guard"
 
 # Make guard scripts executable in WSL.
-$ChmodCommand = "chmod +x " +
-    (("'" + $WSL_WORK + "/.codex_guard/ctf-guard' '" + $WSL_WORK + "/.codex_guard/bash'") -replace "'", "'\''")
-# Simpler quoted chmod command for bash -lc:
-$ChmodCommand = "chmod +x '$WSL_WORK/.codex_guard/ctf-guard' '$WSL_WORK/.codex_guard/bash'"
+$GuardPathWsl = "$WSL_WORK/.codex_guard/ctf-guard"
+$GuardBashPathWsl = "$WSL_WORK/.codex_guard/bash"
+$ChmodCommand = "chmod +x $(Quote-BashArgument $GuardPathWsl) $(Quote-BashArgument $GuardBashPathWsl)"
 & wsl.exe -d $WSL_DISTRO -- bash -lc $ChmodCommand
 
 $CodexFlags = "--sandbox danger-full-access --ask-for-approval never"
