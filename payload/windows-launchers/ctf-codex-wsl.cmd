@@ -22,12 +22,12 @@ if not exist "%PS1%" (
     exit /b 1
 )
 
-where pwsh.exe >nul 2>nul
 set "CTF_CODEX_CMD_WRAPPER=1"
-if %ERRORLEVEL%==0 (
-    pwsh.exe -NoProfile -ExecutionPolicy Bypass -File "%PS1%" %*
-) else (
+where pwsh.exe >nul 2>nul
+if errorlevel 1 (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PS1%" %*
+) else (
+    pwsh.exe -NoProfile -ExecutionPolicy Bypass -File "%PS1%" %*
 )
 
 set "LAUNCH_EXIT=%ERRORLEVEL%"
