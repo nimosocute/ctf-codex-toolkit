@@ -126,6 +126,10 @@ if (
   console.error("Windows launcher path repair/fallback markers are missing");
   process.exit(1);
 }
+if (!windowsLauncher.includes('CODEX_PATH="$(command -v "$CODEX_EXE"') || !windowsLauncher.includes("resolved to a Windows executable")) {
+  console.error("Windows launcher must reject Windows Codex executables resolved inside WSL");
+  process.exit(1);
+}
 
 const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-codex-toolkit.js"), "--help"], {
   encoding: "utf8"

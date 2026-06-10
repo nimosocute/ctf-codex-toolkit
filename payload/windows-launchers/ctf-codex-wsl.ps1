@@ -456,7 +456,11 @@ $BashCommand = 'PYVER="$(python3 - <<''PY'' 2>/dev/null || true' + "`n" +
                'export CTF_ROOT="' + $WSL_CTF_ROOT + '"; ' +
                'export CTF_WORK_ROOT="' + $WSL_CTF_ROOT + '/_work"; ' +
                'CODEX_EXE="${CODEX_BIN:-codex}"; ' +
-               'if ! command -v "$CODEX_EXE" >/dev/null 2>&1; then echo "[!] Codex CLI not found inside WSL PATH."; echo "[!] Install Codex inside Kali or set CODEX_BIN to the executable path."; exit 127; fi; ' +
+               'CODEX_PATH="$(command -v "$CODEX_EXE" 2>/dev/null || true)"; ' +
+               'if [ -z "$CODEX_PATH" ]; then echo "[!] Codex CLI not found inside WSL PATH."; echo "[!] Install Codex inside Kali or set CODEX_BIN to the executable path."; exit 127; fi; ' +
+               'case "$CODEX_PATH" in /mnt/*|*.exe|*.cmd|*.bat) echo "[!] Codex CLI resolved to a Windows executable from inside WSL: $CODEX_PATH"; echo "[!] Install Codex inside Kali, or set CODEX_BIN to the Linux Codex executable path."; exit 127;; esac; ' +
+               'echo "[+] Codex CLI: $CODEX_PATH"; ' +
+               'CODEX_EXE="$CODEX_PATH"; ' +
                $CodexCommand
 
 $WslArgs = @("-d", $WSL_DISTRO, "--cd", $WSL_WORK, "--", "bash", "-lc", $BashCommand)
@@ -471,3 +475,5 @@ if ($LASTEXITCODE -ne 0) {
     }
     exit $LASTEXITCODE
 }
+
+Write-Host "[=] Codex session ended."
