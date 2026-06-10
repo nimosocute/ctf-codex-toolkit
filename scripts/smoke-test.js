@@ -126,16 +126,24 @@ if (
   console.error("Windows launcher path repair/fallback markers are missing");
   process.exit(1);
 }
-if (!windowsLauncher.includes('CODEX_PATH="$(command -v "$CODEX_EXE"') || !windowsLauncher.includes("resolved to a Windows executable")) {
+if (!windowsLauncher.includes('CODEX_PATH="`$(command -v "`$CODEX_EXE"') || !windowsLauncher.includes("resolved to a Windows executable")) {
   console.error("Windows launcher must reject Windows Codex executables resolved inside WSL");
   process.exit(1);
 }
-if (!windowsLauncher.includes("$PreflightCommand") || !windowsLauncher.includes("Codex exited successfully but too quickly")) {
+if (!windowsLauncher.includes("preflight-codex.sh") || !windowsLauncher.includes("Codex exited successfully but too quickly")) {
   console.error("Windows launcher must preflight Codex and diagnose quick successful exits");
   process.exit(1);
 }
-if (!windowsLauncher.includes('exec "$CODEX_EXE"') || !windowsLauncher.includes('"--exec", "bash", "-li", "-c"')) {
-  console.error("Windows launcher must exec Codex through an interactive WSL shell");
+if (
+  !windowsLauncher.includes('exec "`$CODEX_EXE"') ||
+  !windowsLauncher.includes('launch-codex.sh') ||
+  !windowsLauncher.includes('"--exec", "bash", "-li", $LaunchScriptWsl')
+) {
+  console.error("Windows launcher must exec Codex through an interactive WSL shell script");
+  process.exit(1);
+}
+if (windowsLauncher.includes('"--exec", "bash", "-li", "-c"')) {
+  console.error("Windows launcher must not pass long launch scripts through bash -li -c");
   process.exit(1);
 }
 

@@ -138,6 +138,12 @@ function Quote-BashArgument {
     return "'" + $Value.Replace("'", "'\''") + "'"
 }
 
+function Escape-BashDoubleQuoted {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    return $Value.Replace("\", "\\").Replace('"', '\"').Replace('$', '\$').Replace('`', '\`')
+}
+
 $CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot
 $WORK_ROOT = Join-Path $CTF_ROOT "_work"
 $WSL_DISTRO = $Distro
@@ -431,30 +437,56 @@ $GuardBashPathWsl = "$WSL_WORK/.codex_guard/bash"
 $ChmodCommand = "chmod +x $(Quote-BashArgument $GuardPathWsl) $(Quote-BashArgument $GuardBashPathWsl)"
 & wsl.exe -d $WSL_DISTRO -- bash -lc $ChmodCommand
 
-$CodexFlags = "--sandbox danger-full-access --ask-for-approval never"
+$CodexFlags = @("--sandbox", "danger-full-access", "--ask-for-approval", "never")
 
-$BashEnvPrefix = 'PYVER="$(python3 - <<''PY'' 2>/dev/null || true' + "`n" +
-                 'import sys' + "`n" +
-                 'print(f"{sys.version_info.major}.{sys.version_info.minor}")' + "`n" +
-                 'PY' + "`n" +
-                 ')"; ' +
-                 'if [ -n "$PYVER" ] && [ -d "/opt/codex-ctf-python/lib/python$PYVER/site-packages" ]; then export PYTHONPATH="/opt/codex-ctf-python/lib/python$PYVER/site-packages:${PYTHONPATH:-}"; fi; ' +
-                 'export PATH="' + $WSL_WORK + '/.codex_guard:/opt/oss-cad-suite/bin:/opt/codex-ctf-python/bin:$HOME/.npm-global/bin:$PATH"; ' +
-                 'export SHELL="' + $WSL_WORK + '/.codex_guard/bash"; ' +
-                 'export CTF_GUARD="' + $WSL_WORK + '/.codex_guard/ctf-guard"; ' +
-                 'export CTF_ROOT="' + $WSL_CTF_ROOT + '"; ' +
-                 'export CTF_WORK_ROOT="' + $WSL_CTF_ROOT + '/_work"; ' +
-                 'CODEX_EXE="${CODEX_BIN:-codex}"; ' +
-                 'CODEX_PATH="$(command -v "$CODEX_EXE" 2>/dev/null || true)"; ' +
-                 'if [ -z "$CODEX_PATH" ]; then echo "[!] Codex CLI not found inside WSL PATH."; echo "[!] Install Codex inside Kali or set CODEX_BIN to the executable path."; exit 127; fi; ' +
-                 'case "$CODEX_PATH" in /mnt/*|*.exe|*.cmd|*.bat) echo "[!] Codex CLI resolved to a Windows executable from inside WSL: $CODEX_PATH"; echo "[!] Install Codex inside Kali, or set CODEX_BIN to the Linux Codex executable path."; exit 127;; esac; ' +
-                 'export CODEX_EXE="$CODEX_PATH"; '
+$EscapedWslWork = Escape-BashDoubleQuoted $WSL_WORK
+$EscapedWslRoot = Escape-BashDoubleQuoted $WSL_CTF_ROOT
+$BashEnvScript = @"
+PYVER="`$(python3 - <<'PY' 2>/dev/null || true
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+)"
+if [ -n "`$PYVER" ] && [ -d "/opt/codex-ctf-python/lib/python`$PYVER/site-packages" ]; then
+  export PYTHONPATH="/opt/codex-ctf-python/lib/python`$PYVER/site-packages:`${PYTHONPATH:-}"
+fi
+export PATH="$EscapedWslWork/.codex_guard:/opt/oss-cad-suite/bin:/opt/codex-ctf-python/bin:`$HOME/.npm-global/bin:`$PATH"
+export SHELL="$EscapedWslWork/.codex_guard/bash"
+export CTF_GUARD="$EscapedWslWork/.codex_guard/ctf-guard"
+export CTF_ROOT="$EscapedWslRoot"
+export CTF_WORK_ROOT="$EscapedWslRoot/_work"
+CODEX_EXE="`${CODEX_BIN:-codex}"
+CODEX_PATH="`$(command -v "`$CODEX_EXE" 2>/dev/null || true)"
+if [ -z "`$CODEX_PATH" ]; then
+  echo "[!] Codex CLI not found inside WSL PATH."
+  echo "[!] Install Codex inside Kali or set CODEX_BIN to the executable path."
+  exit 127
+fi
+case "`$CODEX_PATH" in
+  /mnt/*|*.exe|*.cmd|*.bat)
+    echo "[!] Codex CLI resolved to a Windows executable from inside WSL: `$CODEX_PATH"
+    echo "[!] Install Codex inside Kali, or set CODEX_BIN to the Linux Codex executable path."
+    exit 127
+    ;;
+esac
+export CODEX_EXE="`$CODEX_PATH"
+"@
 
-$PreflightCommand = $BashEnvPrefix +
-                    'echo "[+] Codex CLI: $CODEX_PATH"; ' +
-                    '"$CODEX_EXE" --version 2>/dev/null | sed "s/^/[+] Codex version: /" || true'
+$PreflightScriptPath = Join-Path $GuardDir "preflight-codex.sh"
+$PreflightScript = @"
+#!/bin/bash
+set -euo pipefail
+$BashEnvScript
+echo "[+] Codex CLI: `$CODEX_PATH"
+"`$CODEX_EXE" --version 2>/dev/null | sed "s/^/[+] Codex version: /" || true
+"@
+Write-Utf8NoBomLf -Path $PreflightScriptPath -Content $PreflightScript
 
-& wsl.exe -d $WSL_DISTRO --cd $WSL_WORK -- bash -lc $PreflightCommand
+$PreflightScriptWsl = "$WSL_WORK/.codex_guard/preflight-codex.sh"
+$ChmodPreflightCommand = "chmod +x $(Quote-BashArgument $PreflightScriptWsl)"
+& wsl.exe -d $WSL_DISTRO -- bash -lc $ChmodPreflightCommand
+
+& wsl.exe -d $WSL_DISTRO --cd $WSL_WORK --exec bash $PreflightScriptWsl
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "[!] Codex preflight failed. Exit code: $LASTEXITCODE"
@@ -469,18 +501,31 @@ if ($LASTEXITCODE -ne 0) {
 if ($Resume -and -not $isNew) {
     Write-Host "[+] Resuming the last Codex session for THIS folder..."
     # resume --last is scoped to the current working directory by default
-    $CodexCommand = 'exec "$CODEX_EXE" ' + $CodexFlags + " resume --last"
+    $CodexArgs = $CodexFlags + @("resume", "--last")
 } else {
     if ($Resume) { Write-Host "[!] No existing workspace to resume; starting a fresh session." }
-    $CodexCommand = 'exec "$CODEX_EXE" ' + $CodexFlags
+    $CodexArgs = $CodexFlags
 }
 
-# Keep this command in bash, not PowerShell, to avoid PowerShell escaping issues with $PATH.
-# PATH prepends the workspace guard. SHELL points to the guard bash wrapper.
-$BashCommand = $BashEnvPrefix + $CodexCommand
+# Keep the launch logic in a script file instead of passing a long multi-line
+# command through `bash -c`; interactive login shells can otherwise misparse
+# nested heredocs and quoting.
+$CodexArgsLiteral = ($CodexArgs | ForEach-Object { Quote-BashArgument $_ }) -join " "
+$LaunchScriptPath = Join-Path $GuardDir "launch-codex.sh"
+$LaunchScript = @"
+#!/bin/bash
+set -euo pipefail
+$BashEnvScript
+exec "`$CODEX_EXE" $CodexArgsLiteral
+"@
+Write-Utf8NoBomLf -Path $LaunchScriptPath -Content $LaunchScript
+
+$LaunchScriptWsl = "$WSL_WORK/.codex_guard/launch-codex.sh"
+$ChmodLaunchCommand = "chmod +x $(Quote-BashArgument $LaunchScriptWsl)"
+& wsl.exe -d $WSL_DISTRO -- bash -lc $ChmodLaunchCommand
 
 Write-Host "[+] Starting Codex inside WSL..."
-$WslArgs = @("-d", $WSL_DISTRO, "--cd", $WSL_WORK, "--exec", "bash", "-li", "-c", $BashCommand)
+$WslArgs = @("-d", $WSL_DISTRO, "--cd", $WSL_WORK, "--exec", "bash", "-li", $LaunchScriptWsl)
 $LaunchStarted = Get-Date
 & wsl.exe @WslArgs
 $LaunchElapsedSeconds = ((Get-Date) - $LaunchStarted).TotalSeconds
