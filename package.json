@@ -1,6 +1,6 @@
 {
   "name": "ctf-codex-toolkit",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "CTF-focused Codex toolkit for Kali Linux and Kali WSL with skills, guard hooks, health checks, and launchers.",
   "license": "MIT",
   "type": "commonjs",

@@ -243,13 +243,15 @@ function installWindowsLaunchersFromWsl() {
   console.log(`[+] wrote ${cmdTarget}`);
 
   const cmdTargetWin = `${windowsProfile}\\ctf-codex-wsl.cmd`;
+  const shortcutArgs = `/k "${cmdTargetWin}"`;
   const shortcutScript = [
     "$desktop = [Environment]::GetFolderPath('Desktop')",
     "if (-not $desktop) { throw 'Cannot resolve Desktop path.' }",
     "$shortcutPath = Join-Path $desktop 'CTF Codex WSL.lnk'",
     "$shell = New-Object -ComObject WScript.Shell",
     "$shortcut = $shell.CreateShortcut($shortcutPath)",
-    `$shortcut.TargetPath = ${psQuote(cmdTargetWin)}`,
+    "$shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\\cmd.exe'",
+    `$shortcut.Arguments = ${psQuote(shortcutArgs)}`,
     "$shortcut.WorkingDirectory = [Environment]::GetFolderPath('UserProfile')",
     "$shortcut.Description = 'Launch CTF Codex Toolkit for Kali WSL'",
     "$shortcut.Save()",
