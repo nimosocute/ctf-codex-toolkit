@@ -323,7 +323,13 @@ if ($Resume -and -not $isNew) {
 
 # Keep this command in bash, not PowerShell, to avoid PowerShell escaping issues with $PATH.
 # PATH prepends the workspace guard. SHELL points to the guard bash wrapper.
-$BashCommand = 'export PATH="' + $WSL_WORK + '/.codex_guard:$HOME/.npm-global/bin:$PATH"; ' +
+$BashCommand = 'PYVER="$(python3 - <<''PY'' 2>/dev/null || true' + "`n" +
+               'import sys' + "`n" +
+               'print(f"{sys.version_info.major}.{sys.version_info.minor}")' + "`n" +
+               'PY' + "`n" +
+               ')"; ' +
+               'if [ -n "$PYVER" ] && [ -d "/opt/codex-ctf-python/lib/python$PYVER/site-packages" ]; then export PYTHONPATH="/opt/codex-ctf-python/lib/python$PYVER/site-packages:${PYTHONPATH:-}"; fi; ' +
+               'export PATH="' + $WSL_WORK + '/.codex_guard:/opt/oss-cad-suite/bin:/opt/codex-ctf-python/bin:$HOME/.npm-global/bin:$PATH"; ' +
                'export SHELL="' + $WSL_WORK + '/.codex_guard/bash"; ' +
                'export CTF_GUARD="' + $WSL_WORK + '/.codex_guard/ctf-guard"; ' +
                'export CTF_ROOT="' + $WSL_CTF_ROOT + '"; ' +

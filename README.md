@@ -12,7 +12,7 @@ CTF-focused Codex setup for Kali Linux and Kali WSL.
 - Kali native: installs the Linux-side Codex CTF toolkit only.
 - Kali WSL: installs the same Kali-side toolkit and also restores the Windows launcher/shortcut workflow.
 
-It installs the managed Codex CTF environment into Kali: skills, checklists, snippets, guard hooks, health checks, optional browser automation helpers, and per-challenge launchers.
+It installs the managed Codex CTF environment into Kali: skills, checklists, snippets, guard hooks, health checks, the required CTF tool inventory, optional browser automation helpers, and per-challenge launchers.
 
 The intended workflow is:
 
@@ -21,6 +21,7 @@ Kali shell
   -> npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
   -> auto-detect Kali native vs Kali WSL
   -> ~/.codex CTF payload
+  -> required CTF tools from tools_inventory.md
   -> /opt/codex-ctf-hooks guard hooks
   -> WSL only: Windows launcher + Desktop shortcut
   -> ctf-codex-toolkit <challenge>
@@ -55,6 +56,7 @@ This repository packages the operational pieces needed to run Codex as a CTF ass
 | Skills | Web, pwn, crypto, reverse, forensics, OSINT, malware, AI/ML, misc, solve dispatcher, writeup |
 | Guard hooks | Pre-tool checks for broad scans, high-risk commands, and oversized candidate loops |
 | Health checks | One-shot environment inventory for CTF tools, providers, Browser Arm, hooks |
+| CTF tools | Required bootstrap for the tools listed in `tools_inventory.md` |
 | Browser support | Optional isolated Browser Arm venv using pinned `cloakbrowser==0.3.31` |
 | Launchers | `ctf-codex-toolkit <challenge>` and `/usr/local/bin/ctf-codex <challenge>` |
 | WSL integration | When run inside Kali WSL, writes the Windows `.ps1`/`.cmd` launcher and Desktop shortcut |
@@ -88,7 +90,7 @@ npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
 For a pinned install:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.3 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.4 -- ctf-codex-toolkit setup
 ```
 
 Or install the CLI globally inside Kali:
@@ -180,12 +182,23 @@ flowchart LR
     I --> J["codex inside Kali"]
 ```
 
-Setup performs three jobs:
+Setup performs five jobs:
 
 1. Copy the managed payload into `~/.codex`.
 2. Install guard hooks and the `ctf-codex` launcher locally in Kali.
-3. Prepare optional helper environments, including Browser Arm unless skipped.
-4. In Kali WSL only, install the Windows launcher files and Desktop shortcut.
+3. Install and verify the CTF tools mapped from `tools_inventory.md`, unless skipped.
+4. Prepare optional helper environments, including Browser Arm unless skipped.
+5. In Kali WSL only, install the Windows launcher files and Desktop shortcut.
+
+The tool install is required by default. It uses Kali apt first, then fallback installers for inventory tools that are commonly absent from minimal Kali:
+
+- `/opt/codex-ctf-python` venv for Python CTF libraries when apt packages are missing.
+- `/opt/oss-cad-suite` for `yosys` and `bitwuzla`.
+- `/opt/codex-ctf-sage` via micromamba for SageMath if apt does not provide `sage`.
+- Go fallback for `ffuf` if the apt package is unavailable.
+- Chromium runtime libraries plus the isolated Browser Arm venv for `cloakbrowser==0.3.31`.
+
+After bootstrap, setup runs the health check. If any inventory tool is still missing, setup exits with a real error instead of reporting a clean install.
 
 After setup, challenge sessions run under:
 
@@ -196,8 +209,9 @@ After setup, challenge sessions run under:
 ## Command Reference
 
 ```text
-ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-health]
-ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm]
+ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
+ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
+ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
@@ -219,6 +233,18 @@ Use `--skip-health` when optional tools are not installed yet:
 
 ```bash
 ctf-codex-toolkit setup --skip-health
+```
+
+Use `--skip-tools` to install only the Codex payload, hooks, launchers, and optional Browser Arm without installing the full CTF inventory:
+
+```bash
+ctf-codex-toolkit setup --skip-tools
+```
+
+Install or repair only the tool inventory later:
+
+```bash
+ctf-codex-toolkit install-tools
 ```
 
 Use `--no-browser-arm` to skip Browser Arm entirely:
@@ -385,6 +411,8 @@ ctf-codex-toolkit health
 
 The health check verifies the installed CTF payload, selected tools, provider readiness signals, Browser Arm files, and hook availability. It is meant to catch broken or inconsistent setup state quickly after installation.
 
+On minimal Kali, `setup` installs and verifies the inventory tools first, including pwn, reverse, forensics, web fuzzing, cracking, hardware helpers, and Chromium runtime libraries used by Browser Arm. Large packages such as `sagemath`, `ghidra`, `python3-angr`, and oss-cad-suite may take time and disk space.
+
 ## Safety Model
 
 The pre-tool guard blocks high-risk automated attack commands and broad candidate searches while allowing small deterministic loops.
@@ -406,7 +434,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.3 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.4 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:

@@ -12,6 +12,13 @@ from pathlib import Path
 CODEX_HOME = Path.home() / ".codex"
 INVENTORY_PATH = CODEX_HOME / "tools_inventory.md"
 OSS_CAD_BIN = Path("/opt/oss-cad-suite/bin")
+CODEX_CTF_PYTHON = Path("/opt/codex-ctf-python")
+CODEX_CTF_PY_SITE = (
+    CODEX_CTF_PYTHON
+    / "lib"
+    / f"python{sys.version_info.major}.{sys.version_info.minor}"
+    / "site-packages"
+)
 BROWSER_ARM_DIR = CODEX_HOME / "tools" / "browser_arm"
 BROWSER_ARM_SITE = (
     BROWSER_ARM_DIR
@@ -26,6 +33,7 @@ BASE_ENV["PATH"] = ":".join(
     str(path)
     for path in [
         OSS_CAD_BIN,
+        CODEX_CTF_PYTHON / "bin",
         Path.home() / ".local" / "bin",
         Path.home() / ".npm-global" / "bin",
         Path("/usr/local/sbin"),
@@ -36,6 +44,12 @@ BASE_ENV["PATH"] = ":".join(
         Path("/bin"),
     ]
 )
+if CODEX_CTF_PY_SITE.is_dir():
+    BASE_ENV["PYTHONPATH"] = ":".join(
+        part
+        for part in [str(CODEX_CTF_PY_SITE), BASE_ENV.get("PYTHONPATH", "")]
+        if part
+    )
 
 
 @dataclass(frozen=True)

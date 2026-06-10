@@ -12,13 +12,52 @@ const DEFAULT_SKILLS_SOURCE = "https://github.com/ljagiello/ctf-skills.git";
 const CLOAKBROWSER_VERSION = "0.3.31";
 const CONFIG_PATH = path.join(os.homedir(), ".ctf-codex-toolkit.json");
 const PACKAGE_VERSION = require(path.join(ROOT, "package.json")).version;
+const INVENTORY_APT_PACKAGES = [
+  "ca-certificates",
+  "bzip2",
+  "xz-utils",
+  "tar",
+  "unzip",
+  "build-essential",
+  "python3",
+  "python3-venv",
+  "python3-pip",
+  "python3-pwntools",
+  "gdb",
+  "checksec",
+  "python3-z3",
+  "sagemath",
+  "python3-angr",
+  "binwalk",
+  "libimage-exiftool-perl",
+  "foremost",
+  "tshark",
+  "radare2",
+  "ghidra",
+  "verilator",
+  "yosys",
+  "fpga-icestorm",
+  "bitwuzla",
+  "curl",
+  "ffuf",
+  "golang",
+  "hashcat",
+  "john",
+  "libnspr4",
+  "libnss3",
+  "libatk-bridge2.0-0",
+  "libgtk-3-0",
+  "libgbm1",
+  "libxkbcommon0"
+];
 
 function usage() {
   console.log(`ctf-codex-toolkit
 
 Usage:
-  ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-health]
-  ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm]
+  ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
+  ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
+  ctf-codex-toolkit install-tools
   ctf-codex-toolkit health
   ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
   ctf-codex-toolkit install-launchers
@@ -234,10 +273,128 @@ function runPrivilegedBash(script) {
   return run("sudo", ["bash", "-lc", script]);
 }
 
+function installBrowserArm() {
+  console.log("[+] Installing Browser Arm Python dependency in isolated ~/.codex/tools/browser_arm/.venv");
+  const browserInstall = `
+set -euo pipefail
+python3 -m venv "$HOME/.codex/tools/browser_arm/.venv"
+"$HOME/.codex/tools/browser_arm/.venv/bin/python" -m pip install --upgrade pip "cloakbrowser==${CLOAKBROWSER_VERSION}"
+"$HOME/.codex/tools/browser_arm/.venv/bin/python" - <<'PY'
+from cloakbrowser import ensure_binary
+print(ensure_binary())
+PY
+`;
+  return runBash(browserInstall);
+}
+
+function installInventoryTools(args = []) {
+  ensureUnix();
+  const withBrowserArm = !hasFlag(args, "--no-browser-arm");
+  const codexHome = path.join(os.homedir(), ".codex");
+  fs.mkdirSync(path.join(codexHome, "tools", "browser_arm"), { recursive: true });
+  if (!fs.existsSync(path.join(codexHome, "tools", "ctf_health_check.py"))) {
+    copyFile(path.join(PAYLOAD, "home-codex", "tools", "ctf_health_check.py"), path.join(codexHome, "tools", "ctf_health_check.py"), 0o755);
+  }
+  if (!fs.existsSync(path.join(codexHome, "tools", "browser_arm", "browser_server.py"))) {
+    copyFile(path.join(PAYLOAD, "home-codex", "tools", "browser_arm", "browser_server.py"), path.join(codexHome, "tools", "browser_arm", "browser_server.py"), 0o644);
+    copyFile(path.join(PAYLOAD, "home-codex", "tools", "browser_arm", "browser_client.py"), path.join(codexHome, "tools", "browser_arm", "browser_client.py"), 0o644);
+  }
+
+  console.log("[+] Installing required CTF tools from tools_inventory.md");
+  console.log("[=] This can take a while on minimal Kali, especially sagemath, ghidra, angr, and oss-cad-suite.");
+  const packageList = INVENTORY_APT_PACKAGES.map((pkg) => `  ${shellQuote(pkg)}`).join("\n");
+  const installScript = `
+set -uo pipefail
+export DEBIAN_FRONTEND=noninteractive
+if ! command -v apt-get >/dev/null 2>&1; then
+  echo "[!] apt-get not found; this installer currently requires Kali/Debian apt for base tool bootstrap." >&2
+  exit 1
+fi
+echo "wireshark-common wireshark-common/install-setuid boolean false" | debconf-set-selections >/dev/null 2>&1 || true
+apt-get update
+packages=(
+${packageList}
+)
+failed=()
+for pkg in "\${packages[@]}"; do
+  printf '[+] apt install %s\\n' "$pkg"
+  if apt-get install -y "$pkg"; then
+    printf '[+] installed %s\\n' "$pkg"
+  else
+    printf '[!] failed to install %s\\n' "$pkg" >&2
+    failed+=("$pkg")
+  fi
+done
+if [ "\${#failed[@]}" -gt 0 ]; then
+  printf '[!] Some apt packages failed, fallback installers will try to cover required tools: %s\\n' "\${failed[*]}" >&2
+fi
+
+mkdir -p /opt/codex-ctf-python /opt/oss-cad-suite /usr/local/bin
+cat >/etc/profile.d/ctf-codex-tools.sh <<'EOF'
+export PATH="/opt/oss-cad-suite/bin:/opt/codex-ctf-python/bin:$PATH"
+pyver="$(python3 - <<'PY' 2>/dev/null || true
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+)"
+if [ -n "$pyver" ] && [ -d "/opt/codex-ctf-python/lib/python$pyver/site-packages" ]; then
+  export PYTHONPATH="/opt/codex-ctf-python/lib/python$pyver/site-packages:\${PYTHONPATH:-}"
+fi
+EOF
+chmod 644 /etc/profile.d/ctf-codex-tools.sh
+
+if ! python3 -c 'import pwnlib, z3, angr' >/dev/null 2>&1 || ! command -v pwn >/dev/null 2>&1; then
+  echo "[+] Installing Python CTF fallbacks into /opt/codex-ctf-python"
+  python3 -m venv /opt/codex-ctf-python
+  /opt/codex-ctf-python/bin/python -m pip install --upgrade pip wheel
+  /opt/codex-ctf-python/bin/python -m pip install pwntools z3-solver angr
+  ln -sf /opt/codex-ctf-python/bin/pwn /usr/local/bin/pwn
+fi
+
+if ! command -v ffuf >/dev/null 2>&1; then
+  echo "[+] Installing ffuf fallback with Go"
+  GOBIN=/usr/local/bin go install github.com/ffuf/ffuf/v2@latest
+fi
+
+if ! command -v yosys >/dev/null 2>&1 || ! command -v bitwuzla >/dev/null 2>&1; then
+  echo "[+] Installing oss-cad-suite fallback into /opt/oss-cad-suite"
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  curl -L --fail --retry 3 https://github.com/YosysHQ/oss-cad-suite-build/releases/latest/download/oss-cad-suite-linux-x64.tgz -o "$tmp/oss-cad-suite-linux-x64.tgz"
+  rm -rf /opt/oss-cad-suite
+  tar -xzf "$tmp/oss-cad-suite-linux-x64.tgz" -C /opt
+fi
+
+if ! command -v sage >/dev/null 2>&1; then
+  echo "[+] Installing SageMath fallback with micromamba into /opt/codex-ctf-sage"
+  if ! command -v micromamba >/dev/null 2>&1; then
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    curl -L --fail --retry 3 https://micro.mamba.pm/api/micromamba/linux-64/latest -o "$tmp/micromamba.tar.bz2"
+    tar -xjf "$tmp/micromamba.tar.bz2" -C "$tmp"
+    install -m 755 "$tmp/bin/micromamba" /usr/local/bin/micromamba
+  fi
+  micromamba create -y -p /opt/codex-ctf-sage -c conda-forge sage
+  ln -sf /opt/codex-ctf-sage/bin/sage /usr/local/bin/sage
+fi
+`;
+  runPrivilegedBash(installScript);
+
+  if (withBrowserArm) {
+    installBrowserArm();
+  } else {
+    console.log("[=] Skipped Browser Arm inventory install (--no-browser-arm).");
+  }
+
+  console.log("[+] Verifying required CTF tools");
+  return health();
+}
+
 function install(args) {
   ensureUnix();
   const ctfRoot = resolveCtfRoot(args, { prompt: true });
   const withBrowserArm = !hasFlag(args, "--no-browser-arm");
+  const withTools = !hasFlag(args, "--skip-tools") && !hasFlag(args, "--no-tools");
   const codexHome = path.join(os.homedir(), ".codex");
 
   console.log("[+] Installing CTF Codex payload into this Kali environment");
@@ -283,20 +440,15 @@ chown root:root /opt/codex-ctf-hooks/ctf_pre_tool_guard.py /opt/codex-ctf-hooks/
     fs.symlinkSync(target, link);
   }
 
-  if (withBrowserArm) {
-    console.log("[+] Installing Browser Arm Python dependency in isolated ~/.codex/tools/browser_arm/.venv");
-    const browserInstall = `
-set -euo pipefail
-python3 -m venv "$HOME/.codex/tools/browser_arm/.venv"
-"$HOME/.codex/tools/browser_arm/.venv/bin/python" -m pip install --upgrade pip "cloakbrowser==${CLOAKBROWSER_VERSION}"
-"$HOME/.codex/tools/browser_arm/.venv/bin/python" - <<'PY'
-from cloakbrowser import ensure_binary
-print(ensure_binary())
-PY
-`;
-    runBash(browserInstall);
+  if (withTools) {
+    installInventoryTools(withBrowserArm ? [] : ["--no-browser-arm"]);
   } else {
-    console.log("[=] Skipped Browser Arm venv install (--no-browser-arm).");
+    console.log("[=] Skipped CTF inventory tool install (--skip-tools).");
+    if (withBrowserArm) {
+      installBrowserArm();
+    } else {
+      console.log("[=] Skipped Browser Arm venv install (--no-browser-arm).");
+    }
   }
 
   writeConfig({ ...readConfig(), ctfRoot, toolkitVersion: PACKAGE_VERSION });
@@ -378,6 +530,7 @@ function main() {
   const [cmd, ...rest] = args;
   if (cmd === "setup") return setup(rest);
   if (cmd === "install") return install(rest);
+  if (cmd === "install-tools") return installInventoryTools(rest);
   if (cmd === "health") return health();
   if (cmd === "update-skills") return updateSkills(rest);
   if (cmd === "install-launchers") {

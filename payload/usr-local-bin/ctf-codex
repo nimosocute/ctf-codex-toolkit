@@ -144,7 +144,16 @@ EOF
 
 chmod +x "$WORK/.codex_guard/ctf-guard" "$WORK/.codex_guard/bash"
 
-export PATH="$WORK/.codex_guard:$HOME/.npm-global/bin:$PATH"
+PYVER="$(python3 - <<'PY' 2>/dev/null || true
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+)"
+if [ -n "$PYVER" ] && [ -d "/opt/codex-ctf-python/lib/python$PYVER/site-packages" ]; then
+  export PYTHONPATH="/opt/codex-ctf-python/lib/python$PYVER/site-packages:${PYTHONPATH:-}"
+fi
+
+export PATH="$WORK/.codex_guard:/opt/oss-cad-suite/bin:/opt/codex-ctf-python/bin:$HOME/.npm-global/bin:$PATH"
 export SHELL="$WORK/.codex_guard/bash"
 export CTF_GUARD="$WORK/.codex_guard/ctf-guard"
 export CTF_ROOT
