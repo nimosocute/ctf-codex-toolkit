@@ -20,6 +20,7 @@ Usage:
   ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm]
   ctf-codex-toolkit health
   ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
+  ctf-codex-toolkit install-launchers
   ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]
 
 Aliases:
@@ -43,6 +44,16 @@ function fail(message) {
 function ensureUnix() {
   if (process.platform === "win32") {
     fail("Run this command inside Kali Linux or Kali WSL.");
+  }
+}
+
+function isWsl() {
+  if (process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP) return true;
+  try {
+    const release = fs.readFileSync("/proc/sys/kernel/osrelease", "utf8").toLowerCase();
+    return release.includes("microsoft") || release.includes("wsl");
+  } catch {
+    return false;
   }
 }
 
@@ -129,6 +140,10 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
+function psQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 function copyDir(source, target) {
   fs.mkdirSync(target, { recursive: true });
   fs.cpSync(source, target, { recursive: true, force: true });
@@ -142,6 +157,73 @@ function copyFile(source, target, mode) {
 
 function runBash(script) {
   return run("bash", ["-lc", script]);
+}
+
+function commandExists(command) {
+  const result = childProcess.spawnSync("bash", ["-lc", `command -v ${shellQuote(command)} >/dev/null 2>&1`], {
+    stdio: "ignore",
+    shell: false
+  });
+  return result.status === 0;
+}
+
+function windowsToWslPath(windowsPath) {
+  return run("wslpath", ["-a", windowsPath], { capture: true });
+}
+
+function getWindowsProfilePath() {
+  const output = run("cmd.exe", ["/c", "echo", "%USERPROFILE%"], { capture: true });
+  return output.replace(/\r/g, "").split("\n")[0].trim();
+}
+
+function installWindowsLaunchersFromWsl() {
+  if (!isWsl()) {
+    console.log("[=] Native Kali detected; Windows launchers are not installed.");
+    return;
+  }
+  if (!commandExists("powershell.exe") || !commandExists("cmd.exe") || !commandExists("wslpath")) {
+    console.log("[=] WSL detected, but Windows interop tools are unavailable; skipped Windows launchers.");
+    return;
+  }
+
+  const windowsProfile = getWindowsProfilePath();
+  if (!windowsProfile) {
+    console.log("[=] WSL detected, but Windows user profile could not be resolved; skipped Windows launchers.");
+    return;
+  }
+
+  const windowsProfileWsl = windowsToWslPath(windowsProfile);
+  const sourceDir = path.join(PAYLOAD, "windows-launchers");
+  const ps1Target = path.join(windowsProfileWsl, "ctf-codex-wsl.ps1");
+  const cmdTarget = path.join(windowsProfileWsl, "ctf-codex-wsl.cmd");
+
+  copyFile(path.join(sourceDir, "ctf-codex-wsl.ps1"), ps1Target, 0o644);
+  copyFile(path.join(sourceDir, "ctf-codex-wsl.cmd"), cmdTarget, 0o644);
+  console.log(`[+] wrote ${ps1Target}`);
+  console.log(`[+] wrote ${cmdTarget}`);
+
+  const cmdTargetWin = `${windowsProfile}\\ctf-codex-wsl.cmd`;
+  const shortcutScript = [
+    "$desktop = [Environment]::GetFolderPath('Desktop')",
+    "if (-not $desktop) { throw 'Cannot resolve Desktop path.' }",
+    "$shortcutPath = Join-Path $desktop 'CTF Codex WSL.lnk'",
+    "$shell = New-Object -ComObject WScript.Shell",
+    "$shortcut = $shell.CreateShortcut($shortcutPath)",
+    `$shortcut.TargetPath = ${psQuote(cmdTargetWin)}`,
+    "$shortcut.WorkingDirectory = [Environment]::GetFolderPath('UserProfile')",
+    "$shortcut.Description = 'Launch CTF Codex Toolkit for Kali WSL'",
+    "$shortcut.Save()",
+    "Write-Output $shortcutPath"
+  ].join("; ");
+
+  const shortcutPath = run("powershell.exe", [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-Command",
+    shortcutScript
+  ], { capture: true }).replace(/\r/g, "").trim();
+  console.log(`[+] wrote ${shortcutPath}`);
 }
 
 function runPrivilegedBash(script) {
@@ -217,6 +299,7 @@ PY
   }
 
   writeConfig({ ...readConfig(), ctfRoot });
+  installWindowsLaunchersFromWsl();
   console.log("[+] Install complete.");
 }
 
@@ -296,6 +379,10 @@ function main() {
   if (cmd === "install") return install(rest);
   if (cmd === "health") return health();
   if (cmd === "update-skills") return updateSkills(rest);
+  if (cmd === "install-launchers") {
+    ensureUnix();
+    return installWindowsLaunchersFromWsl();
+  }
   if (cmd === "version" || cmd === "--version") {
     const pkg = require(path.join(ROOT, "package.json"));
     console.log(pkg.version);

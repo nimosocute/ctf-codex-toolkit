@@ -7,15 +7,22 @@
 
 CTF-focused Codex setup for Kali Linux and Kali WSL.
 
-`ctf-codex-toolkit` is a Linux-side toolkit. Run it from a Kali shell, either on native Kali or inside Kali WSL. It installs the managed Codex CTF environment into that Kali environment: skills, checklists, snippets, guard hooks, health checks, optional browser automation helpers, and per-challenge launchers.
+`ctf-codex-toolkit` is installed from a Kali shell, either on native Kali or inside Kali WSL. The installer auto-detects the environment:
+
+- Kali native: installs the Linux-side Codex CTF toolkit only.
+- Kali WSL: installs the same Kali-side toolkit and also restores the Windows launcher/shortcut workflow.
+
+It installs the managed Codex CTF environment into Kali: skills, checklists, snippets, guard hooks, health checks, optional browser automation helpers, and per-challenge launchers.
 
 The intended workflow is:
 
 ```text
 Kali shell
   -> npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
+  -> auto-detect Kali native vs Kali WSL
   -> ~/.codex CTF payload
   -> /opt/codex-ctf-hooks guard hooks
+  -> WSL only: Windows launcher + Desktop shortcut
   -> ctf-codex-toolkit <challenge>
   -> ~/ctf-workspaces/_work/<challenge>
   -> codex inside Kali
@@ -50,6 +57,7 @@ This repository packages the operational pieces needed to run Codex as a CTF ass
 | Health checks | One-shot environment inventory for CTF tools, providers, Browser Arm, hooks |
 | Browser support | Optional isolated Browser Arm venv using pinned `cloakbrowser==0.3.31` |
 | Launchers | `ctf-codex-toolkit <challenge>` and `/usr/local/bin/ctf-codex <challenge>` |
+| WSL integration | When run inside Kali WSL, writes the Windows `.ps1`/`.cmd` launcher and Desktop shortcut |
 | Workspace layout | Per-challenge directories under a user-selected CTF root |
 
 The package intentionally does not ship Codex provider configuration. Users keep their own official OpenAI Codex config or compatible third-party config outside this repository.
@@ -80,7 +88,7 @@ npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
 For a pinned install:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.0 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.2.0 -- ctf-codex-toolkit setup
 ```
 
 Or install the CLI globally inside Kali:
@@ -119,6 +127,16 @@ npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolki
 
 This package does not install Kali Linux, WSL, or Codex CLI. It configures an existing Kali environment for CTF-focused Codex workflows.
 
+When setup is run inside Kali WSL and Windows interop is available, it also writes:
+
+```text
+%USERPROFILE%\ctf-codex-wsl.ps1
+%USERPROFILE%\ctf-codex-wsl.cmd
+Desktop\CTF Codex WSL.lnk
+```
+
+Kali native installs skip those Windows files automatically.
+
 Use a non-default CTF root:
 
 ```bash
@@ -151,13 +169,15 @@ Explicit CLI flags take precedence over environment variables and saved config.
 ```mermaid
 flowchart LR
     A["Kali shell"] --> B["npm exec ctf-codex-toolkit setup"]
-    B --> C["Install ~/.codex CTF payload"]
-    B --> D["Install /opt/codex-ctf-hooks"]
-    B --> E["Install /usr/local/bin/ctf-codex"]
-    C --> F["Run health checks"]
-    E --> G["ctf-codex-toolkit <challenge>"]
-    G --> H["~/ctf-workspaces/_work/<challenge>"]
-    H --> I["codex inside Kali"]
+    B --> C{"Kali WSL?"}
+    C -->|No| D["Install Kali-native toolkit"]
+    C -->|Yes| E["Install Kali toolkit + Windows launchers"]
+    D --> F["~/.codex + /opt hooks + ctf-codex"]
+    E --> F
+    F --> G["Run health checks"]
+    G --> H["ctf-codex-toolkit <challenge>"]
+    H --> I["~/ctf-workspaces/_work/<challenge>"]
+    I --> J["codex inside Kali"]
 ```
 
 Setup performs three jobs:
@@ -165,6 +185,7 @@ Setup performs three jobs:
 1. Copy the managed payload into `~/.codex`.
 2. Install guard hooks and the `ctf-codex` launcher locally in Kali.
 3. Prepare optional helper environments, including Browser Arm unless skipped.
+4. In Kali WSL only, install the Windows launcher files and Desktop shortcut.
 
 After setup, challenge sessions run under:
 
@@ -179,6 +200,7 @@ ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm]
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
+ctf-codex-toolkit install-launchers
 ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]
 ctf-codex <challenge> [-Resume] [--ctf-root <path>]
 ```
@@ -205,6 +227,12 @@ Use `--no-browser-arm` to skip Browser Arm entirely:
 ctf-codex-toolkit setup --no-browser-arm
 ```
 
+Use `install-launchers` inside Kali WSL to recreate only the Windows launcher files and Desktop shortcut:
+
+```bash
+ctf-codex-toolkit install-launchers
+```
+
 ## Installed Files
 
 Inside Kali, `install` writes:
@@ -222,6 +250,14 @@ Inside Kali, `install` writes:
 ~/.ctf-codex-toolkit.json
 /opt/codex-ctf-hooks/*
 /usr/local/bin/ctf-codex
+```
+
+Inside Kali WSL only, setup also writes Windows-side launcher files through Windows interop:
+
+```text
+%USERPROFILE%\ctf-codex-wsl.ps1
+%USERPROFILE%\ctf-codex-wsl.cmd
+Desktop\CTF Codex WSL.lnk
 ```
 
 The installer does not copy:
@@ -356,7 +392,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.0 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.2.0 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:

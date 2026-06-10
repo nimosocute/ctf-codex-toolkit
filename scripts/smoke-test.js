@@ -18,7 +18,9 @@ const required = [
   "payload/opt-hooks/ctf_post_tool_guard.py",
   "payload/opt-hooks/ctf_stop_guard.py",
   "payload/opt-hooks/ctf-command-guard",
-  "payload/usr-local-bin/ctf-codex"
+  "payload/usr-local-bin/ctf-codex",
+  "payload/windows-launchers/ctf-codex-wsl.ps1",
+  "payload/windows-launchers/ctf-codex-wsl.cmd"
 ];
 
 const forbiddenPathParts = [
