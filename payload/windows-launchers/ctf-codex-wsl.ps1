@@ -332,10 +332,10 @@ $CodexFlags = "--sandbox danger-full-access --ask-for-approval never"
 if ($Resume -and -not $isNew) {
     Write-Host "[+] Resuming the last Codex session for THIS folder..."
     # resume --last is scoped to the current working directory by default
-    $CodexCommand = "codex $CodexFlags resume --last"
+    $CodexCommand = '"$CODEX_EXE" ' + $CodexFlags + " resume --last"
 } else {
     if ($Resume) { Write-Host "[!] No existing workspace to resume; starting a fresh session." }
-    $CodexCommand = "codex $CodexFlags"
+    $CodexCommand = '"$CODEX_EXE" ' + $CodexFlags
 }
 
 # Keep this command in bash, not PowerShell, to avoid PowerShell escaping issues with $PATH.
@@ -351,7 +351,19 @@ $BashCommand = 'PYVER="$(python3 - <<''PY'' 2>/dev/null || true' + "`n" +
                'export CTF_GUARD="' + $WSL_WORK + '/.codex_guard/ctf-guard"; ' +
                'export CTF_ROOT="' + $WSL_CTF_ROOT + '"; ' +
                'export CTF_WORK_ROOT="' + $WSL_CTF_ROOT + '/_work"; ' +
+               'CODEX_EXE="${CODEX_BIN:-codex}"; ' +
+               'if ! command -v "$CODEX_EXE" >/dev/null 2>&1; then echo "[!] Codex CLI not found inside WSL PATH."; echo "[!] Install Codex inside Kali or set CODEX_BIN to the executable path."; exit 127; fi; ' +
                $CodexCommand
 
 $WslArgs = @("-d", $WSL_DISTRO, "--cd", $WSL_WORK, "--", "bash", "-lc", $BashCommand)
 & wsl.exe @WslArgs
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "[!] Codex exited before or during launch. Exit code: $LASTEXITCODE"
+    Write-Host "[!] WSL workspace: $WSL_WORK"
+    Write-Host "[!] Windows workspace: $WORK"
+    if ($env:CTF_CODEX_CMD_WRAPPER -ne "1") {
+        Read-Host "Press Enter to close"
+    }
+    exit $LASTEXITCODE
+}

@@ -23,10 +23,19 @@ if not exist "%PS1%" (
 )
 
 where pwsh.exe >nul 2>nul
+set "CTF_CODEX_CMD_WRAPPER=1"
 if %ERRORLEVEL%==0 (
     pwsh.exe -NoProfile -ExecutionPolicy Bypass -File "%PS1%" %*
 ) else (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PS1%" %*
 )
 
-exit /b %ERRORLEVEL%
+set "LAUNCH_EXIT=%ERRORLEVEL%"
+if not "%LAUNCH_EXIT%"=="0" (
+    echo.
+    echo [!] CTF Codex WSL launcher exited with code %LAUNCH_EXIT%.
+    echo [!] Review the error above. Press any key to close this window.
+    pause >nul
+)
+
+exit /b %LAUNCH_EXIT%

@@ -90,7 +90,7 @@ npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
 For a pinned install:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.7 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.8 -- ctf-codex-toolkit setup
 ```
 
 Or install the CLI globally inside Kali:
@@ -267,6 +267,8 @@ Update now? [U]pdate/[S]kip
 
 Choosing update refreshes the toolkit payload, launchers, and saved toolkit version in Kali WSL, then continues launching the challenge. It skips the full CTF tool inventory install; run `ctf-codex-toolkit install-tools` when you want to repair or reinstall tools.
 
+If Codex fails before opening, the Windows launcher keeps the console open and prints the WSL exit code. Common causes are Codex CLI not installed inside Kali, `codex` missing from the WSL `PATH`, or a bad WSL distro name.
+
 ## Installed Files
 
 Inside Kali, `install` writes:
@@ -434,7 +436,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.7 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.8 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:
