@@ -33,9 +33,11 @@ Kali shell
 
 - [What This Project Provides](#what-this-project-provides)
 - [Install](#install)
+- [Daily Usage](#daily-usage)
 - [Requirements](#requirements)
 - [How It Works](#how-it-works)
 - [Command Reference](#command-reference)
+- [Vietnamese Quick Guide](#vietnamese-quick-guide)
 - [Installed Files](#installed-files)
 - [Workspace Model](#workspace-model)
 - [Skill Credits and Updates](#skill-credits-and-updates)
@@ -117,6 +119,70 @@ Install directly from GitHub when testing unreleased changes:
 ```bash
 npm exec --yes --package github:nimosocute/ctf-codex-toolkit -- ctf-codex-toolkit setup
 ```
+
+## Daily Usage
+
+Most users do not need a global npm install. The recommended pattern is:
+
+1. Run setup or update with `npm exec`.
+2. Start daily challenge sessions from the installed launcher.
+3. Use `npm exec` again only when updating or repairing the toolkit.
+
+Check the published latest version:
+
+```bash
+npm view ctf-codex-toolkit version
+```
+
+Check the version installed by setup:
+
+```bash
+cat ~/.ctf-codex-toolkit.json
+```
+
+Check the Windows WSL launcher version:
+
+```bash
+grep 'LauncherVersion' /mnt/c/Users/$USER/ctf-codex-wsl.ps1 2>/dev/null || \
+grep 'LauncherVersion' /mnt/c/Users/*/ctf-codex-wsl.ps1
+```
+
+Update the Kali payload and Windows WSL shortcut without reinstalling the full tool inventory:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools
+```
+
+Start a challenge from Kali native or Kali WSL:
+
+```bash
+ctf-codex <challenge>
+```
+
+Resume the last session for that challenge:
+
+```bash
+ctf-codex <challenge> -Resume
+```
+
+Run a health check after changing tools, PATH, Node.js, Python, Codex, or WSL:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit health
+```
+
+If you want the `ctf-codex-toolkit` command available directly, install it globally inside Kali:
+
+```bash
+npm config set prefix ~/.npm-global
+mkdir -p ~/.npm-global/bin
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+npm install -g ctf-codex-toolkit
+ctf-codex-toolkit --version
+```
+
+This global install affects only Kali/WSL when `which npm` points to a Linux path such as `/usr/bin/npm`. It does not update Windows npm unless you run npm from Windows PowerShell/CMD.
 
 ## Requirements
 
@@ -262,12 +328,135 @@ ctf-codex-toolkit install-launchers
 When the Windows shortcut is launched from Kali WSL, it checks the published npm `latest` version. If a newer toolkit version is available, the launcher prompts:
 
 ```text
-Update now? [U]pdate/[S]kip
+Update available! <current> -> <latest>
+
+> 1. Update now
+  2. Skip
+  3. Skip until next version
 ```
 
-Choosing update refreshes the toolkit payload, launchers, and saved toolkit version in Kali WSL, then continues launching the challenge. It skips the full CTF tool inventory install; run `ctf-codex-toolkit install-tools` when you want to repair or reinstall tools.
+Choosing update refreshes the toolkit payload, launchers, and saved toolkit version in Kali WSL, then continues launching the challenge. It skips the full CTF tool inventory install; run `ctf-codex-toolkit install-tools` when you want to repair or reinstall tools. The Windows launcher has its own embedded `LauncherVersion`, so stale shortcut files are detected even if the WSL config already contains a newer toolkit version.
 
 If Codex fails before opening, the Windows launcher keeps the console open and prints the WSL exit code. Common causes are Codex CLI not installed inside Kali, `codex` missing from the WSL `PATH`, or a bad WSL distro name.
+
+## Vietnamese Quick Guide
+
+### Cai dat / cap nhat
+
+Chay trong Kali native hoac Kali WSL:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
+```
+
+Neu chi muon cap nhat payload va shortcut, khong cai lai bo tool CTF nang:
+
+```bash
+npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools
+```
+
+Lenh `npm exec` chi tai package tam thoi de chay setup. Sau khi setup xong, toolkit da duoc ghi vao:
+
+```text
+~/.codex/
+~/.ctf-codex-toolkit.json
+/opt/codex-ctf-hooks/
+/usr/local/bin/ctf-codex
+```
+
+Neu dang o Kali WSL, setup cung ghi shortcut phia Windows:
+
+```text
+%USERPROFILE%\ctf-codex-wsl.ps1
+%USERPROFILE%\ctf-codex-wsl.cmd
+Desktop\CTF Codex WSL.lnk
+```
+
+### Su dung hang ngay
+
+Mo challenge moi:
+
+```bash
+ctf-codex ten_challenge
+```
+
+Resume challenge cu:
+
+```bash
+ctf-codex ten_challenge -Resume
+```
+
+Workspace mac dinh nam o:
+
+```text
+~/ctf-workspaces/_work/ten_challenge
+```
+
+Tren Windows shortcut, nhap ten challenge khi duoc hoi. Launcher se tao workspace, tao `AGENTS.md`, cai guard trong workspace, roi mo Codex ben trong Kali WSL.
+
+### Kiem tra version
+
+Version moi nhat tren npm:
+
+```bash
+npm view ctf-codex-toolkit version
+```
+
+Version da setup trong Kali:
+
+```bash
+cat ~/.ctf-codex-toolkit.json
+```
+
+Version cua Windows WSL shortcut:
+
+```bash
+grep 'LauncherVersion' /mnt/c/Users/*/ctf-codex-wsl.ps1
+```
+
+Neu `ctf-codex-toolkit --version` bao `command not found` thi khong sao. Dieu do chi co nghia la ban dung `npm exec`, chua cai CLI global. Shortcut va `ctf-codex` van co the dung neu setup da thanh cong.
+
+### Global install la gi?
+
+Global install chi can neu ban muon go truc tiep:
+
+```bash
+ctf-codex-toolkit --version
+ctf-codex-toolkit health
+ctf-codex-toolkit setup
+```
+
+Neu can cai global trong Kali ma gap loi `EACCES`, doi npm prefix ve thu muc user:
+
+```bash
+npm config set prefix ~/.npm-global
+mkdir -p ~/.npm-global/bin
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+npm install -g ctf-codex-toolkit
+```
+
+Global install trong Kali WSL khong anh huong npm Windows, mien la `which npm` tro den Linux path nhu `/usr/bin/npm`.
+
+### Loi hay gap
+
+Neu WSL bao Codex dang tro den `/mnt/c/.../codex`, nghia la no dang bat nham Codex Windows. Cai Codex CLI trong Kali:
+
+```bash
+npm config set prefix ~/.npm-global
+mkdir -p ~/.npm-global/bin
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+npm install -g @openai/codex
+which codex
+codex --version
+```
+
+Ket qua dung khong duoc la `/mnt/c/...`; nen la duong dan Linux nhu:
+
+```text
+/home/<user>/.npm-global/bin/codex
+```
 
 ## Installed Files
 
