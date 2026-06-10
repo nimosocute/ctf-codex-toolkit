@@ -141,19 +141,19 @@ npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
 Start a challenge session after setup:
 
 ```bash
-ctf-codex my_challenge
+ctf-codex <challenge>
 ```
 
 Resume the last session for a challenge:
 
 ```bash
-ctf-codex my_challenge -Resume
+ctf-codex <challenge> -Resume
 ```
 
 If you installed globally, this also works:
 
 ```bash
-ctf-codex-toolkit my_challenge
+ctf-codex-toolkit <challenge>
 ```
 
 Install directly from GitHub when testing unreleased changes:
@@ -173,13 +173,13 @@ Desktop\CTF Codex WSL.lnk
 When prompted, type a challenge name such as:
 
 ```text
-bachcube
+bachdeptrai
 ```
 
 The launcher finds or creates:
 
 ```text
-<ctf-root>/_work/bachcube
+<ctf-root>/_work/bachdeptrai
 ```
 
 It then starts Codex inside that workspace. To continue an earlier Codex conversation, use Codex's built-in command inside the Codex session:
@@ -191,7 +191,7 @@ It then starts Codex inside that workspace. To continue an earlier Codex convers
 On native Kali, the equivalent command is:
 
 ```bash
-ctf-codex bachcube
+ctf-codex bachdeptrai
 ```
 
 To update the Kali payload and Windows shortcut later:
@@ -225,7 +225,7 @@ Use a non-default CTF root:
 
 ```bash
 npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --ctf-root ~/ctf
-ctf-codex my_challenge --ctf-root ~/ctf
+ctf-codex <challenge> --ctf-root ~/ctf
 ```
 
 During `setup` or `install`, the CLI asks where to place the CTF workspace root and stores the answer in:
@@ -293,14 +293,21 @@ After setup, challenge sessions run under:
 Global install inside Kali is recommended for regular use, because it makes all `ctf-codex-toolkit ...` management commands available directly. If you used one-shot `npm exec`, run management commands through `npm exec` again. The installed daily challenge launcher is always `ctf-codex`.
 
 ```text
+ctf-codex-toolkit --help
+ctf-codex-toolkit -h
+ctf-codex-toolkit --version
+ctf-codex-toolkit version
 ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
 ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
+ctf-codex --help
 ctf-codex <challenge> [-Resume] [--ctf-root <path>]
 ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]  # only if globally installed
+ctf-codex-workflow <command-or-challenge> [options]
+ctf-codex-wsl <command-or-challenge> [options]
 ```
 
 Example without a global install:
@@ -314,8 +321,9 @@ Compatibility aliases:
 ```text
 ctf-codex-workflow
 ctf-codex-wsl
-ctf-codex
 ```
+
+`ctf-codex` is the daily launcher installed by `ctf-codex-toolkit setup`; it is not an npm bin alias.
 
 `setup` is the usual entry point. It runs `install` and then `health`.
 
@@ -423,8 +431,8 @@ That directory becomes the working directory for Codex.
 Example:
 
 ```bash
-ctf-codex-toolkit web_login
-ctf-codex-toolkit web_login -Resume
+ctf-codex <challenge>
+ctf-codex <challenge> -Resume
 ```
 
 ## Skill Credits and Updates
@@ -713,19 +721,19 @@ npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
 Mở một challenge sau khi setup:
 
 ```bash
-ctf-codex my_challenge
+ctf-codex <challenge>
 ```
 
 Resume session cuối của challenge:
 
 ```bash
-ctf-codex my_challenge -Resume
+ctf-codex <challenge> -Resume
 ```
 
 Nếu đã cài global, lệnh này cũng dùng được:
 
 ```bash
-ctf-codex-toolkit my_challenge
+ctf-codex-toolkit <challenge>
 ```
 
 Cài trực tiếp từ GitHub khi test thay đổi chưa release:
@@ -747,13 +755,13 @@ Desktop\CTF Codex WSL.lnk
 Khi được hỏi, nhập tên bài, ví dụ:
 
 ```text
-bachcube
+bachdeptrai
 ```
 
 Launcher sẽ tìm hoặc tạo:
 
 ```text
-<ctf-root>/_work/bachcube
+<ctf-root>/_work/bachdeptrai
 ```
 
 Sau đó launcher mở Codex ngay trong workspace đó. Nếu muốn quay lại đoạn chat trước trong Codex, dùng lệnh có sẵn của Codex trong phiên Codex:
@@ -765,7 +773,7 @@ Sau đó launcher mở Codex ngay trong workspace đó. Nếu muốn quay lại 
 Trên Kali native, lệnh tương đương là:
 
 ```bash
-ctf-codex bachcube
+ctf-codex bachdeptrai
 ```
 
 Khi cần cập nhật payload Kali và Windows shortcut:
@@ -801,7 +809,7 @@ Dùng CTF root khác mặc định:
 
 ```bash
 npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --ctf-root ~/ctf
-ctf-codex my_challenge --ctf-root ~/ctf
+ctf-codex <challenge> --ctf-root ~/ctf
 ```
 
 Trong lúc `setup` hoặc `install`, CLI hỏi nơi đặt CTF workspace root và lưu vào:
@@ -873,14 +881,21 @@ Sau setup, session challenge chạy dưới:
 Cài global trong Kali là cách khuyến nghị nếu dùng thường xuyên, vì mọi lệnh quản trị `ctf-codex-toolkit ...` sẽ gọi trực tiếp được. Nếu dùng one-shot `npm exec`, các lệnh quản trị cần chạy qua `npm exec` lại. Launcher mở bài hằng ngày luôn được cài là `ctf-codex`.
 
 ```text
+ctf-codex-toolkit --help
+ctf-codex-toolkit -h
+ctf-codex-toolkit --version
+ctf-codex-toolkit version
 ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
 ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
+ctf-codex --help
 ctf-codex <challenge> [-Resume] [--ctf-root <path>]
 ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]  # chỉ khi đã cài global
+ctf-codex-workflow <command-or-challenge> [options]
+ctf-codex-wsl <command-or-challenge> [options]
 ```
 
 Ví dụ không cài global:
@@ -894,8 +909,9 @@ Alias tương thích:
 ```text
 ctf-codex-workflow
 ctf-codex-wsl
-ctf-codex
 ```
+
+`ctf-codex` là launcher dùng hằng ngày do `ctf-codex-toolkit setup` cài; nó không phải npm bin alias.
 
 `setup` là entry point thông thường. Nó chạy `install` rồi chạy `health`.
 
@@ -1007,8 +1023,8 @@ Thư mục đó trở thành working directory cho Codex.
 Ví dụ:
 
 ```bash
-ctf-codex-toolkit web_login
-ctf-codex-toolkit web_login -Resume
+ctf-codex <challenge>
+ctf-codex <challenge> -Resume
 ```
 
 <a id="cap-nhat-skills"></a>

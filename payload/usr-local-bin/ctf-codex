@@ -11,7 +11,8 @@ usage() {
 ctf-codex
 
 Usage:
-  ctf-codex <challenge> [-Resume]
+  ctf-codex --help
+  ctf-codex <challenge> [-Resume] [--ctf-root <path>]
 
 Environment:
   CTF_ROOT   CTF workspace root. Default: ~/ctf-workspaces

@@ -55,6 +55,10 @@ function usage() {
   console.log(`ctf-codex-toolkit
 
 Usage:
+  ctf-codex-toolkit --help
+  ctf-codex-toolkit -h
+  ctf-codex-toolkit --version
+  ctf-codex-toolkit version
   ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
   ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
   ctf-codex-toolkit install-tools
@@ -70,8 +74,8 @@ Aliases:
 Examples:
   npm exec --yes --package ctf-codex-toolkit -- ctf-codex-toolkit setup
   ctf-codex-toolkit setup
-  ctf-codex-toolkit web_login
-  ctf-codex-toolkit web_login -Resume
+  ctf-codex-toolkit <challenge>
+  ctf-codex-toolkit <challenge> -Resume
 `);
 }
 
