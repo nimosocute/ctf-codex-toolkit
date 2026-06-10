@@ -377,9 +377,39 @@ if ! command -v yosys >/dev/null 2>&1 || ! command -v bitwuzla >/dev/null 2>&1; 
   echo "[+] Installing oss-cad-suite fallback into /opt/oss-cad-suite"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
-  curl -L --fail --retry 3 https://github.com/YosysHQ/oss-cad-suite-build/releases/latest/download/oss-cad-suite-linux-x64.tgz -o "$tmp/oss-cad-suite-linux-x64.tgz"
+  oss_url="$(python3 - <<'PY'
+import json
+import platform
+import sys
+import urllib.request
+
+machine = platform.machine().lower()
+if machine in {"x86_64", "amd64"}:
+    platform_name = "linux-x64"
+elif machine in {"aarch64", "arm64"}:
+    platform_name = "linux-arm64"
+else:
+    raise SystemExit(f"unsupported oss-cad-suite architecture: {machine}")
+
+with urllib.request.urlopen("https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/latest", timeout=30) as response:
+    release = json.load(response)
+
+for asset in release.get("assets", []):
+    name = asset.get("name", "")
+    if name.startswith(f"oss-cad-suite-{platform_name}-") and name.endswith(".tgz"):
+        print(asset["browser_download_url"])
+        break
+else:
+    raise SystemExit(f"no oss-cad-suite asset found for {platform_name}")
+PY
+)"
+  if [ -z "$oss_url" ]; then
+    echo "[!] Could not resolve oss-cad-suite download URL." >&2
+    exit 1
+  fi
+  curl -L --fail --retry 3 "$oss_url" -o "$tmp/oss-cad-suite.tgz"
   rm -rf /opt/oss-cad-suite
-  tar -xzf "$tmp/oss-cad-suite-linux-x64.tgz" -C /opt
+  tar -xzf "$tmp/oss-cad-suite.tgz" -C /opt
 fi
 
 if ! command -v sage >/dev/null 2>&1; then
