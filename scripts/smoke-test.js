@@ -111,6 +111,10 @@ if (!windowsLauncher.includes("$CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot")) 
   console.error("Windows launcher must resolve CTF root to an absolute path before deriving _work paths");
   process.exit(1);
 }
+if (!windowsLauncher.includes('$LauncherVersion = "') || !windowsLauncher.includes("Invoke-ToolkitUpdateCheck -Distro $WSL_DISTRO -LauncherVersion $LauncherVersion")) {
+  console.error("Windows launcher must compare its embedded launcher version during update checks");
+  process.exit(1);
+}
 if (!windowsLauncher.includes("function Quote-BashArgument") || !windowsLauncher.includes("Quote-BashArgument $GuardPathWsl")) {
   console.error("Windows launcher must bash-quote WSL guard paths before chmod");
   process.exit(1);

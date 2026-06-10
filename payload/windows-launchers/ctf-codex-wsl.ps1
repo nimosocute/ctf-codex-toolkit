@@ -22,6 +22,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ConfigPath = Join-Path $HOME ".ctf-codex-toolkit.json"
+$LauncherVersion = "0.1.22"
 
 function Read-ToolkitConfig {
     if (-not (Test-Path -LiteralPath $ConfigPath)) {
@@ -173,22 +174,14 @@ try {
 }
 
 function Invoke-ToolkitUpdateCheck {
-    param([Parameter(Mandatory = $true)][string]$Distro)
+    param(
+        [Parameter(Mandatory = $true)][string]$Distro,
+        [Parameter(Mandatory = $true)][string]$LauncherVersion
+    )
 
     $CheckScript = @'
 set -euo pipefail
-current="$(node - <<'NODE'
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-try {
-  const config = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.ctf-codex-toolkit.json'), 'utf8'));
-  process.stdout.write(config.toolkitVersion || '0.0.0');
-} catch {
-  process.stdout.write('0.0.0');
-}
-NODE
-)"
+current="$1"
 latest="$(npm view ctf-codex-toolkit version 2>/dev/null || true)"
 should_update="$(node - "$current" "$latest" <<'NODE'
 const current = process.argv[2] || '0.0.0';
@@ -213,7 +206,7 @@ fi
 '@
 
     try {
-        $Result = (& wsl.exe -d $Distro -- bash -lc $CheckScript 2>$null).Trim()
+        $Result = (& wsl.exe -d $Distro -- bash -lc $CheckScript -- $LauncherVersion 2>$null).Trim()
     } catch {
         return
     }
@@ -260,7 +253,7 @@ fi
     }
 }
 
-Invoke-ToolkitUpdateCheck -Distro $WSL_DISTRO
+Invoke-ToolkitUpdateCheck -Distro $WSL_DISTRO -LauncherVersion $LauncherVersion
 
 function Write-Utf8NoBomLf {
     param(
