@@ -130,6 +130,10 @@ if (!windowsLauncher.includes('CODEX_PATH="$(command -v "$CODEX_EXE"') || !windo
   console.error("Windows launcher must reject Windows Codex executables resolved inside WSL");
   process.exit(1);
 }
+if (!windowsLauncher.includes("$PreflightCommand") || !windowsLauncher.includes("Codex exited successfully but too quickly")) {
+  console.error("Windows launcher must preflight Codex and diagnose quick successful exits");
+  process.exit(1);
+}
 
 const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-codex-toolkit.js"), "--help"], {
   encoding: "utf8"

@@ -433,6 +433,39 @@ $ChmodCommand = "chmod +x $(Quote-BashArgument $GuardPathWsl) $(Quote-BashArgume
 
 $CodexFlags = "--sandbox danger-full-access --ask-for-approval never"
 
+$BashEnvPrefix = 'PYVER="$(python3 - <<''PY'' 2>/dev/null || true' + "`n" +
+                 'import sys' + "`n" +
+                 'print(f"{sys.version_info.major}.{sys.version_info.minor}")' + "`n" +
+                 'PY' + "`n" +
+                 ')"; ' +
+                 'if [ -n "$PYVER" ] && [ -d "/opt/codex-ctf-python/lib/python$PYVER/site-packages" ]; then export PYTHONPATH="/opt/codex-ctf-python/lib/python$PYVER/site-packages:${PYTHONPATH:-}"; fi; ' +
+                 'export PATH="' + $WSL_WORK + '/.codex_guard:/opt/oss-cad-suite/bin:/opt/codex-ctf-python/bin:$HOME/.npm-global/bin:$PATH"; ' +
+                 'export SHELL="' + $WSL_WORK + '/.codex_guard/bash"; ' +
+                 'export CTF_GUARD="' + $WSL_WORK + '/.codex_guard/ctf-guard"; ' +
+                 'export CTF_ROOT="' + $WSL_CTF_ROOT + '"; ' +
+                 'export CTF_WORK_ROOT="' + $WSL_CTF_ROOT + '/_work"; ' +
+                 'CODEX_EXE="${CODEX_BIN:-codex}"; ' +
+                 'CODEX_PATH="$(command -v "$CODEX_EXE" 2>/dev/null || true)"; ' +
+                 'if [ -z "$CODEX_PATH" ]; then echo "[!] Codex CLI not found inside WSL PATH."; echo "[!] Install Codex inside Kali or set CODEX_BIN to the executable path."; exit 127; fi; ' +
+                 'case "$CODEX_PATH" in /mnt/*|*.exe|*.cmd|*.bat) echo "[!] Codex CLI resolved to a Windows executable from inside WSL: $CODEX_PATH"; echo "[!] Install Codex inside Kali, or set CODEX_BIN to the Linux Codex executable path."; exit 127;; esac; ' +
+                 'export CODEX_EXE="$CODEX_PATH"; '
+
+$PreflightCommand = $BashEnvPrefix +
+                    'echo "[+] Codex CLI: $CODEX_PATH"; ' +
+                    '"$CODEX_EXE" --version 2>/dev/null | sed "s/^/[+] Codex version: /" || true'
+
+& wsl.exe -d $WSL_DISTRO --cd $WSL_WORK -- bash -lc $PreflightCommand
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "[!] Codex preflight failed. Exit code: $LASTEXITCODE"
+    Write-Host "[!] WSL workspace: $WSL_WORK"
+    Write-Host "[!] Windows workspace: $WORK"
+    if ($env:CTF_CODEX_CMD_WRAPPER -ne "1") {
+        Read-Host "Press Enter to close"
+    }
+    exit $LASTEXITCODE
+}
+
 if ($Resume -and -not $isNew) {
     Write-Host "[+] Resuming the last Codex session for THIS folder..."
     # resume --last is scoped to the current working directory by default
@@ -444,27 +477,12 @@ if ($Resume -and -not $isNew) {
 
 # Keep this command in bash, not PowerShell, to avoid PowerShell escaping issues with $PATH.
 # PATH prepends the workspace guard. SHELL points to the guard bash wrapper.
-$BashCommand = 'PYVER="$(python3 - <<''PY'' 2>/dev/null || true' + "`n" +
-               'import sys' + "`n" +
-               'print(f"{sys.version_info.major}.{sys.version_info.minor}")' + "`n" +
-               'PY' + "`n" +
-               ')"; ' +
-               'if [ -n "$PYVER" ] && [ -d "/opt/codex-ctf-python/lib/python$PYVER/site-packages" ]; then export PYTHONPATH="/opt/codex-ctf-python/lib/python$PYVER/site-packages:${PYTHONPATH:-}"; fi; ' +
-               'export PATH="' + $WSL_WORK + '/.codex_guard:/opt/oss-cad-suite/bin:/opt/codex-ctf-python/bin:$HOME/.npm-global/bin:$PATH"; ' +
-               'export SHELL="' + $WSL_WORK + '/.codex_guard/bash"; ' +
-               'export CTF_GUARD="' + $WSL_WORK + '/.codex_guard/ctf-guard"; ' +
-               'export CTF_ROOT="' + $WSL_CTF_ROOT + '"; ' +
-               'export CTF_WORK_ROOT="' + $WSL_CTF_ROOT + '/_work"; ' +
-               'CODEX_EXE="${CODEX_BIN:-codex}"; ' +
-               'CODEX_PATH="$(command -v "$CODEX_EXE" 2>/dev/null || true)"; ' +
-               'if [ -z "$CODEX_PATH" ]; then echo "[!] Codex CLI not found inside WSL PATH."; echo "[!] Install Codex inside Kali or set CODEX_BIN to the executable path."; exit 127; fi; ' +
-               'case "$CODEX_PATH" in /mnt/*|*.exe|*.cmd|*.bat) echo "[!] Codex CLI resolved to a Windows executable from inside WSL: $CODEX_PATH"; echo "[!] Install Codex inside Kali, or set CODEX_BIN to the Linux Codex executable path."; exit 127;; esac; ' +
-               'echo "[+] Codex CLI: $CODEX_PATH"; ' +
-               'CODEX_EXE="$CODEX_PATH"; ' +
-               $CodexCommand
+$BashCommand = $BashEnvPrefix + $CodexCommand
 
 $WslArgs = @("-d", $WSL_DISTRO, "--cd", $WSL_WORK, "--", "bash", "-lc", $BashCommand)
+$LaunchStarted = Get-Date
 & wsl.exe @WslArgs
+$LaunchElapsedSeconds = ((Get-Date) - $LaunchStarted).TotalSeconds
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "[!] Codex exited before or during launch. Exit code: $LASTEXITCODE"
@@ -474,6 +492,19 @@ if ($LASTEXITCODE -ne 0) {
         Read-Host "Press Enter to close"
     }
     exit $LASTEXITCODE
+}
+
+if ($LaunchElapsedSeconds -lt 5) {
+    Write-Host ""
+    Write-Host "[!] Codex exited successfully but too quickly ($([Math]::Round($LaunchElapsedSeconds, 1))s)."
+    Write-Host "[!] This usually means the Codex CLI started without an interactive TTY or immediately rejected its environment."
+    Write-Host "[!] Try running inside Kali WSL: codex --sandbox danger-full-access --ask-for-approval never"
+    Write-Host "[!] WSL workspace: $WSL_WORK"
+    Write-Host "[!] Windows workspace: $WORK"
+    if ($env:CTF_CODEX_CMD_WRAPPER -ne "1") {
+        Read-Host "Press Enter to close"
+    }
+    exit 1
 }
 
 Write-Host "[=] Codex session ended."
