@@ -188,10 +188,10 @@ It then starts Codex inside that workspace. To continue an earlier Codex convers
 /resume
 ```
 
-On native Kali, the equivalent command is:
+On native Kali, use the same challenge name with `ctf-codex`. For example, if the challenge is named `bachdeptrai`, the workspace is `<ctf-root>/_work/bachdeptrai`; replace `<challenge>` with your actual challenge name:
 
 ```bash
-ctf-codex bachdeptrai
+ctf-codex <challenge>
 ```
 
 To update the Kali payload and Windows shortcut later:
@@ -770,10 +770,10 @@ Sau đó launcher mở Codex ngay trong workspace đó. Nếu muốn quay lại 
 /resume
 ```
 
-Trên Kali native, lệnh tương đương là:
+Trên Kali native, dùng cùng tên bài với `ctf-codex`. Ví dụ nếu bài tên là `bachdeptrai`, workspace sẽ là `<ctf-root>/_work/bachdeptrai`; hãy thay `<challenge>` bằng tên bài thật:
 
 ```bash
-ctf-codex bachdeptrai
+ctf-codex <challenge>
 ```
 
 Khi cần cập nhật payload Kali và Windows shortcut:
