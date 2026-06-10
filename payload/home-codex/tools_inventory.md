@@ -19,8 +19,8 @@ Updated: 2026-06-10T00:27:14
 | ghidra | `test -x /usr/share/ghidra/ghidraRun && dpkg-query -W -f='${Version}' ghidra` | apt | OK | `12.0.4+ds-0kali1` | GUI tool; version comes from package metadata. |
 | verilator | `verilator --version` | apt | OK | `Verilator 5.049 devel rev v5.048-111-g69b3c5f6d (mod)` |  |
 | yosys | `yosys -V` | apt or /opt/oss-cad-suite fallback | OK | `Yosys 0.65+57 (git sha1 9d0cdb855, clang++ 18.1.8 -fPIC -O3)` | PATH must include /opt/oss-cad-suite/bin. |
-| iceunpack | `iceunpack 2>&1 \| head -1` | apt | OK | `Error: Unexpected end of file.` |  |
-| icebox_vlog | `icebox_vlog -h 2>&1 \| head -1` | apt | OK | `` |  |
+| iceunpack | `command -v iceunpack` | apt | OK | `/usr/bin/iceunpack` |  |
+| icebox_vlog | `command -v icebox_vlog` | apt | OK | `/usr/bin/icebox_vlog` |  |
 | bitwuzla | `bitwuzla --version` | apt or /opt/oss-cad-suite fallback | OK | `1.0-prerelease` | PATH must include /opt/oss-cad-suite/bin. |
 | curl | `curl --version` | apt | OK | `curl 8.18.0 (x86_64-pc-linux-gnu) libcurl/8.18.0 OpenSSL/3.5.5 zlib/1.3.1 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.2 libssh2/1.11.1 nghttp2/1.68.0 ngtcp2/1.16.0 nghttp3/1.12.0 librtmp/2.3 mit-krb5/1.22.1 OpenLDA` |  |
 | ffuf | `ffuf -V` | apt or Go fallback | OK | `ffuf version: 2.1.0-dev` | guard blocks broad scans unless scoped/approved |

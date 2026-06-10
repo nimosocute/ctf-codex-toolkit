@@ -277,6 +277,8 @@ function installBrowserArm() {
   console.log("[+] Installing Browser Arm Python dependency in isolated ~/.codex/tools/browser_arm/.venv");
   const browserInstall = `
 set -euo pipefail
+unset PYTHONPATH
+export PYTHONNOUSERSITE=1
 python3 -m venv "$HOME/.codex/tools/browser_arm/.venv"
 "$HOME/.codex/tools/browser_arm/.venv/bin/python" -m pip install --upgrade pip "cloakbrowser==${CLOAKBROWSER_VERSION}"
 "$HOME/.codex/tools/browser_arm/.venv/bin/python" - <<'PY'
@@ -342,6 +344,15 @@ if [ -n "$pyver" ] && [ -d "/opt/codex-ctf-python/lib/python$pyver/site-packages
 fi
 EOF
 chmod 644 /etc/profile.d/ctf-codex-tools.sh
+export PATH="/opt/oss-cad-suite/bin:/opt/codex-ctf-python/bin:$PATH"
+pyver="$(python3 - <<'PY' 2>/dev/null || true
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+)"
+if [ -n "$pyver" ] && [ -d "/opt/codex-ctf-python/lib/python$pyver/site-packages" ]; then
+  export PYTHONPATH="/opt/codex-ctf-python/lib/python$pyver/site-packages:\${PYTHONPATH:-}"
+fi
 
 if ! python3 -c 'import pwnlib, z3, angr' >/dev/null 2>&1 || ! command -v pwn >/dev/null 2>&1; then
   echo "[+] Installing Python CTF fallbacks into /opt/codex-ctf-python"
@@ -349,6 +360,12 @@ if ! python3 -c 'import pwnlib, z3, angr' >/dev/null 2>&1 || ! command -v pwn >/
   /opt/codex-ctf-python/bin/python -m pip install --upgrade pip wheel
   /opt/codex-ctf-python/bin/python -m pip install pwntools z3-solver angr
   ln -sf /opt/codex-ctf-python/bin/pwn /usr/local/bin/pwn
+  pyver="$(python3 - <<'PY'
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+)"
+  export PYTHONPATH="/opt/codex-ctf-python/lib/python$pyver/site-packages:\${PYTHONPATH:-}"
 fi
 
 if ! command -v ffuf >/dev/null 2>&1; then
@@ -398,6 +415,7 @@ function install(args) {
   const codexHome = path.join(os.homedir(), ".codex");
 
   console.log("[+] Installing CTF Codex payload into this Kali environment");
+  console.log(`[+] ctf-codex-toolkit version: ${PACKAGE_VERSION}`);
   console.log(`[+] CTF workspace root: ${ctfRoot}`);
 
   fs.mkdirSync(path.join(codexHome, "tools", "browser_arm"), { recursive: true });

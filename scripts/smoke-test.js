@@ -26,6 +26,7 @@ const required = [
 const forbiddenPathParts = [
   ".venv",
   ".git",
+  "__pycache__",
   "sessions",
   "history",
   "logs"
@@ -58,6 +59,10 @@ function walk(dir) {
     const rel = path.relative(root, full).replaceAll(path.sep, "/");
     if (forbiddenPathParts.some((part) => rel.split("/").includes(part))) {
       console.error(`forbidden package path ${rel}`);
+      process.exit(1);
+    }
+    if (rel.endsWith(".pyc")) {
+      console.error(`forbidden bytecode file ${rel}`);
       process.exit(1);
     }
     if (entry.isDirectory()) {
