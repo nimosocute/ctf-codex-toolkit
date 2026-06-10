@@ -469,17 +469,18 @@ if ($LASTEXITCODE -ne 0) {
 if ($Resume -and -not $isNew) {
     Write-Host "[+] Resuming the last Codex session for THIS folder..."
     # resume --last is scoped to the current working directory by default
-    $CodexCommand = '"$CODEX_EXE" ' + $CodexFlags + " resume --last"
+    $CodexCommand = 'exec "$CODEX_EXE" ' + $CodexFlags + " resume --last"
 } else {
     if ($Resume) { Write-Host "[!] No existing workspace to resume; starting a fresh session." }
-    $CodexCommand = '"$CODEX_EXE" ' + $CodexFlags
+    $CodexCommand = 'exec "$CODEX_EXE" ' + $CodexFlags
 }
 
 # Keep this command in bash, not PowerShell, to avoid PowerShell escaping issues with $PATH.
 # PATH prepends the workspace guard. SHELL points to the guard bash wrapper.
 $BashCommand = $BashEnvPrefix + $CodexCommand
 
-$WslArgs = @("-d", $WSL_DISTRO, "--cd", $WSL_WORK, "--", "bash", "-lc", $BashCommand)
+Write-Host "[+] Starting Codex inside WSL..."
+$WslArgs = @("-d", $WSL_DISTRO, "--cd", $WSL_WORK, "--exec", "bash", "-li", "-c", $BashCommand)
 $LaunchStarted = Get-Date
 & wsl.exe @WslArgs
 $LaunchElapsedSeconds = ((Get-Date) - $LaunchStarted).TotalSeconds

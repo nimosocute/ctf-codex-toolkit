@@ -134,6 +134,10 @@ if (!windowsLauncher.includes("$PreflightCommand") || !windowsLauncher.includes(
   console.error("Windows launcher must preflight Codex and diagnose quick successful exits");
   process.exit(1);
 }
+if (!windowsLauncher.includes('exec "$CODEX_EXE"') || !windowsLauncher.includes('"--exec", "bash", "-li", "-c"')) {
+  console.error("Windows launcher must exec Codex through an interactive WSL shell");
+  process.exit(1);
+}
 
 const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-codex-toolkit.js"), "--help"], {
   encoding: "utf8"
