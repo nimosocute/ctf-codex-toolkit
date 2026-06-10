@@ -127,8 +127,12 @@ if (
   console.error("Windows launcher path repair/fallback markers are missing");
   process.exit(1);
 }
-if (!windowsLauncher.includes('CODEX_PATH="`$(command -v "`$CODEX_EXE"') || !windowsLauncher.includes("resolved to a Windows executable")) {
-  console.error("Windows launcher must reject Windows Codex executables resolved inside WSL");
+if (
+  !windowsLauncher.includes("find_linux_codex()") ||
+  !windowsLauncher.includes("WINDOWS_CODEX_PATH") ||
+  !windowsLauncher.includes("npm install -g @openai/codex")
+) {
+  console.error("Windows launcher must fallback-search Linux Codex and explain WSL install steps");
   process.exit(1);
 }
 if (!windowsLauncher.includes("preflight-codex.sh") || !windowsLauncher.includes("Codex exited successfully but too quickly")) {

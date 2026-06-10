@@ -494,20 +494,55 @@ export SHELL="$EscapedWslWork/.codex_guard/bash"
 export CTF_GUARD="$EscapedWslWork/.codex_guard/ctf-guard"
 export CTF_ROOT="$EscapedWslRoot"
 export CTF_WORK_ROOT="$EscapedWslRoot/_work"
+is_windows_codex_path() {
+  case "`$1" in
+    /mnt/*|*.exe|*.cmd|*.bat) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+find_linux_codex() {
+  for candidate in \
+    "`$HOME/.npm-global/bin/codex" \
+    "`$HOME/.local/bin/codex" \
+    "/usr/local/bin/codex" \
+    "/usr/bin/codex"
+  do
+    if [ -x "`$candidate" ] && ! is_windows_codex_path "`$candidate"; then
+      printf '%s\n' "`$candidate"
+      return 0
+    fi
+  done
+  npm_prefix="`$(npm config get prefix 2>/dev/null || true)"
+  if [ -n "`$npm_prefix" ] && [ "`$npm_prefix" != "undefined" ]; then
+    candidate="`$npm_prefix/bin/codex"
+    if [ -x "`$candidate" ] && ! is_windows_codex_path "`$candidate"; then
+      printf '%s\n' "`$candidate"
+      return 0
+    fi
+  fi
+  return 1
+}
 CODEX_EXE="`${CODEX_BIN:-codex}"
 CODEX_PATH="`$(command -v "`$CODEX_EXE" 2>/dev/null || true)"
 if [ -z "`$CODEX_PATH" ]; then
-  echo "[!] Codex CLI not found inside WSL PATH."
-  echo "[!] Install Codex inside Kali or set CODEX_BIN to the executable path."
+  CODEX_PATH="`$(find_linux_codex || true)"
+fi
+if [ -n "`$CODEX_PATH" ] && is_windows_codex_path "`$CODEX_PATH"; then
+  WINDOWS_CODEX_PATH="`$CODEX_PATH"
+  CODEX_PATH="`$(find_linux_codex || true)"
+fi
+if [ -z "`$CODEX_PATH" ]; then
+  if [ -n "`${WINDOWS_CODEX_PATH:-}" ]; then
+    echo "[!] Codex CLI resolved to a Windows executable from inside WSL: `$WINDOWS_CODEX_PATH"
+  else
+    echo "[!] Codex CLI not found inside WSL PATH."
+  fi
+  echo "[!] Install Codex inside Kali WSL:"
+  echo "    npm config set prefix ~/.npm-global"
+  echo "    npm install -g @openai/codex"
+  echo "[!] Or set CODEX_BIN to a Linux Codex executable path."
   exit 127
 fi
-case "`$CODEX_PATH" in
-  /mnt/*|*.exe|*.cmd|*.bat)
-    echo "[!] Codex CLI resolved to a Windows executable from inside WSL: `$CODEX_PATH"
-    echo "[!] Install Codex inside Kali, or set CODEX_BIN to the Linux Codex executable path."
-    exit 127
-    ;;
-esac
 export CODEX_EXE="`$CODEX_PATH"
 "@
 
