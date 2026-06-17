@@ -268,11 +268,8 @@ function installWindowsLaunchersFromWsl() {
   console.log(`[+] wrote ${shortcutPath}`);
 }
 
-function uninstallWindowsLaunchersFromWsl(dryRun = false) {
-  if (!isWsl()) return;
-  if (!commandExists("powershell.exe")) return;
-
-  const script = [
+function windowsUninstallScript(dryRun = false) {
+  return [
     "$targets = @(",
     "  (Join-Path $env:USERPROFILE '.ctf-codex-toolkit.json'),",
     "  (Join-Path $env:USERPROFILE 'ctf-codex-wsl.ps1'),",
@@ -285,14 +282,19 @@ function uninstallWindowsLaunchersFromWsl(dryRun = false) {
       ? "  if (Test-Path -LiteralPath $target) { Write-Output \"[dry-run] would remove $target\" }"
       : "  if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force; Write-Output \"[+] removed $target\" }",
     "}"
-  ].join("; ");
+  ].join("\n");
+}
+
+function uninstallWindowsLaunchersFromWsl(dryRun = false) {
+  if (!isWsl()) return;
+  if (!commandExists("powershell.exe")) return;
 
   run("powershell.exe", [
     "-NoProfile",
     "-ExecutionPolicy",
     "Bypass",
     "-Command",
-    script
+    windowsUninstallScript(dryRun)
   ]);
 }
 

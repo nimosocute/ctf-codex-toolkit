@@ -129,7 +129,7 @@ For a pinned global install:
 ```bash
 npm config set prefix ~/.npm-global
 export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g ctf-codex-toolkit@0.1.25
+npm install -g ctf-codex-toolkit@0.1.26
 ctf-codex-toolkit setup
 ```
 
@@ -557,7 +557,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.25 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.26 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:
@@ -718,7 +718,7 @@ Cài global theo version cố định:
 ```bash
 npm config set prefix ~/.npm-global
 export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g ctf-codex-toolkit@0.1.25
+npm install -g ctf-codex-toolkit@0.1.26
 ctf-codex-toolkit setup
 ```
 
@@ -1166,7 +1166,7 @@ Regression checks hiện có:
 Nên dùng package npm đã publish cho cài đặt thông thường:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.25 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.26 -- ctf-codex-toolkit setup
 ```
 
 Dạng cài từ GitHub sẽ chạy trực tiếp nội dung repository:

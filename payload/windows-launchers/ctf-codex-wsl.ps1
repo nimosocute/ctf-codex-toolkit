@@ -23,7 +23,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ConfigPath = Join-Path $HOME ".ctf-codex-toolkit.json"
-$LauncherVersion = "0.1.25"
+$LauncherVersion = "0.1.26"
 
 function Read-ToolkitConfig {
     if (-not (Test-Path -LiteralPath $ConfigPath)) {
@@ -47,6 +47,91 @@ function Write-ToolkitConfig {
     }
 }
 
+if (-not $Distro) { $Distro = "kali-linux" }
+$WSL_DISTRO = $Distro
+
+function Invoke-ToolkitUpdateCheck {
+    param(
+        [Parameter(Mandatory = $true)][string]$Distro,
+        [Parameter(Mandatory = $true)][string]$LauncherVersion
+    )
+
+    $CheckScript = @'
+set -euo pipefail
+current="$1"
+latest="$(npm view ctf-codex-toolkit version 2>/dev/null || true)"
+should_update="$(node - "$current" "$latest" <<'NODE'
+const current = process.argv[2] || '0.0.0';
+const latest = process.argv[3] || '';
+function parts(version) {
+  const match = String(version).trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  return match ? match.slice(1, 4).map(Number) : null;
+}
+const c = parts(current);
+const l = parts(latest);
+if (!c || !l) process.exit(1);
+for (let i = 0; i < 3; i += 1) {
+  if (l[i] > c[i]) { process.stdout.write('yes'); process.exit(0); }
+  if (l[i] < c[i]) { process.stdout.write('no'); process.exit(0); }
+}
+process.stdout.write('no');
+NODE
+)"
+if [ "$should_update" = "yes" ]; then
+  printf '%s|%s\n' "$current" "$latest"
+fi
+'@
+
+    try {
+        $Result = (& wsl.exe -d $Distro -- bash -lc $CheckScript -- $LauncherVersion 2>$null).Trim()
+    } catch {
+        return
+    }
+
+    if (-not $Result -or -not $Result.Contains("|")) { return }
+
+    $Parts = $Result -split '\|', 2
+    $CurrentVersion = $Parts[0]
+    $LatestVersion = $Parts[1]
+
+    $Config = Read-ToolkitConfig
+    if ($Config.skippedToolkitVersion -and [string]$Config.skippedToolkitVersion -eq $LatestVersion) {
+        return
+    }
+
+    $Esc = [char]27
+    $Sparkle = [char]0x2728
+    Write-Host ""
+    Write-Host "$Esc[93m$Sparkle$Esc[0m $Esc[97mUpdate available!$Esc[0m $Esc[90m$CurrentVersion -> $LatestVersion$Esc[0m"
+    Write-Host ""
+    Write-Host "$Esc[90mRelease notes: https://github.com/nimosocute/ctf-codex-toolkit/releases/latest$Esc[0m"
+    Write-Host ""
+    Write-Host "$Esc[96m> 1. Update now$Esc[0m $Esc[90m(runs ``npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools``)$Esc[0m"
+    Write-Host "  2. Skip"
+    Write-Host "  3. Skip until next version"
+    Write-Host ""
+    $Choice = Read-Host "Press enter to update, or choose 1/2/3"
+    if ([string]::IsNullOrWhiteSpace($Choice)) { $Choice = "1" }
+
+    if ($Choice -match '^(1|u|update)$') {
+        Write-Host "[+] Updating CTF Codex Toolkit to $LatestVersion..."
+        & wsl.exe -d $Distro -- bash -lc "npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Toolkit update failed."
+            exit $LASTEXITCODE
+        }
+        Write-Host "[+] Update complete. Continuing launcher..."
+    } elseif ($Choice -match '^(3|until|skip until next version)$') {
+        $Config | Add-Member -NotePropertyName "skippedToolkitVersion" -NotePropertyValue $LatestVersion -Force
+        Write-ToolkitConfig $Config
+        Write-Host "[=] Skipped toolkit update until a version newer than $LatestVersion is available."
+    } else {
+        Write-Host "[=] Skipped toolkit update."
+    }
+}
+
+Invoke-ToolkitUpdateCheck -Distro $WSL_DISTRO -LauncherVersion $LauncherVersion
+
 if (-not $CtfRoot) {
     $Config = Read-ToolkitConfig
     if ($Config.ctfRoot) { $CtfRoot = [string]$Config.ctfRoot }
@@ -58,8 +143,6 @@ if (-not $CtfRoot) {
     Write-ToolkitConfig ([pscustomobject]@{ ctfRoot = $CtfRoot })
     Write-Host "[+] wrote $ConfigPath"
 }
-if (-not $Distro) { $Distro = "kali-linux" }
-
 function Repair-CompactWindowsPath {
     param([Parameter(Mandatory = $true)][string]$PathValue)
 
@@ -204,7 +287,6 @@ function Add-WorkspaceScope {
 
 $CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot
 $WORK_ROOT = Join-Path $CTF_ROOT "_work"
-$WSL_DISTRO = $Distro
 
 try {
     $Config = Read-ToolkitConfig
@@ -213,88 +295,6 @@ try {
 } catch {
     Write-Host "[!] Could not update toolkit config: $ConfigPath"
 }
-
-function Invoke-ToolkitUpdateCheck {
-    param(
-        [Parameter(Mandatory = $true)][string]$Distro,
-        [Parameter(Mandatory = $true)][string]$LauncherVersion
-    )
-
-    $CheckScript = @'
-set -euo pipefail
-current="$1"
-latest="$(npm view ctf-codex-toolkit version 2>/dev/null || true)"
-should_update="$(node - "$current" "$latest" <<'NODE'
-const current = process.argv[2] || '0.0.0';
-const latest = process.argv[3] || '';
-function parts(version) {
-  const match = String(version).trim().match(/^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:[-+].*)?$/);
-  return match ? match.slice(1, 4).map(Number) : null;
-}
-const c = parts(current);
-const l = parts(latest);
-if (!c || !l) process.exit(1);
-for (let i = 0; i < 3; i += 1) {
-  if (l[i] > c[i]) { process.stdout.write('yes'); process.exit(0); }
-  if (l[i] < c[i]) { process.stdout.write('no'); process.exit(0); }
-}
-process.stdout.write('no');
-NODE
-)"
-if [ "$should_update" = "yes" ]; then
-  printf '%s|%s\n' "$current" "$latest"
-fi
-'@
-
-    try {
-        $Result = (& wsl.exe -d $Distro -- bash -lc $CheckScript -- $LauncherVersion 2>$null).Trim()
-    } catch {
-        return
-    }
-
-    if (-not $Result -or -not $Result.Contains("|")) { return }
-
-    $Parts = $Result -split '\|', 2
-    $CurrentVersion = $Parts[0]
-    $LatestVersion = $Parts[1]
-
-    $Config = Read-ToolkitConfig
-    if ($Config.skippedToolkitVersion -and [string]$Config.skippedToolkitVersion -eq $LatestVersion) {
-        return
-    }
-
-    $Esc = [char]27
-    $Sparkle = [char]0x2728
-    Write-Host ""
-    Write-Host "$Esc[93m$Sparkle$Esc[0m $Esc[97mUpdate available!$Esc[0m $Esc[90m$CurrentVersion -> $LatestVersion$Esc[0m"
-    Write-Host ""
-    Write-Host "$Esc[90mRelease notes: https://github.com/nimosocute/ctf-codex-toolkit/releases/latest$Esc[0m"
-    Write-Host ""
-    Write-Host "$Esc[96m> 1. Update now$Esc[0m $Esc[90m(runs ``npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools``)$Esc[0m"
-    Write-Host "  2. Skip"
-    Write-Host "  3. Skip until next version"
-    Write-Host ""
-    $Choice = Read-Host "Press enter to update, or choose 1/2/3"
-    if ([string]::IsNullOrWhiteSpace($Choice)) { $Choice = "1" }
-
-    if ($Choice -match '^(1|u|update)$') {
-        Write-Host "[+] Updating CTF Codex Toolkit to $LatestVersion..."
-        & wsl.exe -d $Distro -- bash -lc "npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools"
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "Toolkit update failed."
-            exit $LASTEXITCODE
-        }
-        Write-Host "[+] Update complete. Continuing launcher..."
-    } elseif ($Choice -match '^(3|until|skip until next version)$') {
-        $Config | Add-Member -NotePropertyName "skippedToolkitVersion" -NotePropertyValue $LatestVersion -Force
-        Write-ToolkitConfig $Config
-        Write-Host "[=] Skipped toolkit update until a version newer than $LatestVersion is available."
-    } else {
-        Write-Host "[=] Skipped toolkit update."
-    }
-}
-
-Invoke-ToolkitUpdateCheck -Distro $WSL_DISTRO -LauncherVersion $LauncherVersion
 
 function Write-Utf8NoBomLf {
     param(

@@ -119,6 +119,8 @@ if (
   !cliSource.includes('cmd === "uninstall"') ||
   !cliSource.includes("--remove-workspaces") ||
   !cliSource.includes(".ctf-codex-toolkit.json") ||
+  !cliSource.includes("function windowsUninstallScript(") ||
+  !cliSource.includes('.join("\\n")') ||
   !cliSource.includes("Preserved ~/.codex/auth.json")
 ) {
   console.error("CLI must expose a safe uninstall command that preserves Codex auth/session state");
@@ -137,6 +139,13 @@ if (!windowsLauncher.includes('$LauncherVersion = "') || !windowsLauncher.includ
 }
 if (!windowsLauncher.includes("function Quote-BashArgument") || !windowsLauncher.includes("Quote-BashArgument $GuardPathWsl")) {
   console.error("Windows launcher must bash-quote WSL guard paths before chmod");
+  process.exit(1);
+}
+const updateCheckCall = windowsLauncher.indexOf("Invoke-ToolkitUpdateCheck -Distro");
+const rootPrompt = windowsLauncher.indexOf("CTF workspace root on Windows");
+const challengePrompt = windowsLauncher.indexOf("Challenge name (folder under _work)");
+if (updateCheckCall < 0 || rootPrompt < 0 || challengePrompt < 0 || updateCheckCall > rootPrompt || updateCheckCall > challengePrompt) {
+  console.error("Windows launcher update prompt must run before root/challenge folder prompts");
   process.exit(1);
 }
 if (!windowsLauncher.includes("function Repair-CompactWindowsPath") || !windowsLauncher.includes("function ConvertTo-WslPath")) {
