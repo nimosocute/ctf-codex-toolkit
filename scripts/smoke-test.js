@@ -15,6 +15,7 @@ const required = [
   "payload/home-codex/tools_inventory.md",
   "payload/home-codex/ctf-snippets/raw_http_socket.py",
   "payload/home-codex/ctf-snippets/binary_sample_triage.py",
+  "payload/home-codex/ctf-snippets/endpoint_sibling_runner.py",
   "payload/home-codex/tools/ctf_health_check.py",
   "payload/home-codex/tools/browser_arm/browser_server.py",
   "payload/opt-hooks/ctf_pre_tool_guard.py",
@@ -194,6 +195,10 @@ if (!agentsPolicy.includes("work/exploit.py") || !agentsPolicy.includes("Base64/
 }
 if (!agentsPolicy.includes("contextual fuzzing") || !agentsPolicy.includes("rabbit hole")) {
   console.error("Global AGENTS policy must mention contextual fuzzing and rabbit-hole handling");
+  process.exit(1);
+}
+if (!agentsPolicy.includes("endpoint_sibling_runner.py") || !agentsPolicy.includes("verifier matrix") || !agentsPolicy.includes("H_web_bridge")) {
+  console.error("Global AGENTS policy must require endpoint-sibling automation, verifier matrix checks, and crypto-to-web bridge hypotheses");
   process.exit(1);
 }
 if (!agentsPolicy.includes("CTF_STRICT_SCOPE=1") || !agentsPolicy.includes("tools that are not available in apt")) {
@@ -401,6 +406,50 @@ if (scopedInlineNetwork.status !== 0) {
 
 const nestedWorkDir = path.join(challengeRoot, "work");
 fs.mkdirSync(nestedWorkDir, { recursive: true });
+fs.writeFileSync(path.join(nestedWorkDir, "sibling-routes.txt"), "forge\nissue\nsign\n");
+fs.writeFileSync(path.join(nestedWorkDir, "broad-routes.txt"), Array.from({ length: 21 }, (_, index) => `route${index}`).join("\n") + "\n");
+const broadEndpointFuzz = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "ffuf -u https://example.com/_m/FUZZ -w work/sibling-routes.txt"
+  }
+});
+if (broadEndpointFuzz.status === 0 || !`${broadEndpointFuzz.stderr}${broadEndpointFuzz.stdout}`.includes("broad endpoint fuzzing")) {
+  console.error("pre-tool guard must reject broad fuzzer wordlist commands by default");
+  console.error(broadEndpointFuzz.stdout);
+  console.error(broadEndpointFuzz.stderr);
+  process.exit(1);
+}
+
+const smallEndpointFuzz = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "CTF_SMALL_FUZZ=1 CTF_CANDIDATES=3 CTF_FUZZ_ORACLE=status:200 CTF_OBSERVED_PREFIX=/_m/ ffuf -u https://example.com/_m/FUZZ -w work/sibling-routes.txt -mc 200"
+  }
+});
+if (smallEndpointFuzz.status !== 0) {
+  console.error("pre-tool guard should allow <=20 scoped endpoint-sibling fuzzing with an oracle and observed prefix");
+  console.error(smallEndpointFuzz.stdout);
+  console.error(smallEndpointFuzz.stderr);
+  process.exit(1);
+}
+
+const oversizedEndpointFuzz = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "CTF_SMALL_FUZZ=1 CTF_CANDIDATES=21 CTF_FUZZ_ORACLE=status:200 CTF_OBSERVED_PREFIX=/_m/ ffuf -u https://example.com/_m/FUZZ -w work/broad-routes.txt -mc 200"
+  }
+});
+if (oversizedEndpointFuzz.status === 0 || !`${oversizedEndpointFuzz.stderr}${oversizedEndpointFuzz.stdout}`.includes("broad endpoint fuzzing")) {
+  console.error("pre-tool guard must reject scoped fuzzing attempts over the 20-candidate cap");
+  console.error(oversizedEndpointFuzz.stdout);
+  console.error(oversizedEndpointFuzz.stderr);
+  process.exit(1);
+}
+
 fs.writeFileSync(path.join(challengeRoot, "scope.txt"), "raw.githubusercontent.com\n");
 const rootScopeFromNestedCwd = runGuard({
   tool_name: "Bash",
@@ -499,6 +548,20 @@ if (
   !binarySampleTriage.includes("struct alignment")
 ) {
   console.error("binary_sample_triage.py must report null-byte and offset-structure hints");
+  process.exit(1);
+}
+
+const endpointSiblingRunner = fs.readFileSync(path.join(root, "payload/home-codex/ctf-snippets/endpoint_sibling_runner.py"), "utf8");
+if (
+  !endpointSiblingRunner.includes("endpoint sibling") ||
+  !endpointSiblingRunner.includes("verifier_matrix") ||
+  !endpointSiblingRunner.includes("same_session") ||
+  !endpointSiblingRunner.includes("client_pub") ||
+  !endpointSiblingRunner.includes("forged_packet") ||
+  !endpointSiblingRunner.includes("max_candidates") ||
+  !endpointSiblingRunner.includes("body_base64_preview")
+) {
+  console.error("endpoint_sibling_runner.py must expose scoped route-family expansion and verifier-matrix markers");
   process.exit(1);
 }
 

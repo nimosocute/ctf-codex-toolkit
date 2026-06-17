@@ -62,6 +62,8 @@ Invoke `/ctf-misc` and load its `ctfd-navigation.md` for the full API reference 
 4. **Connect** -- Try remote services (`nc`) to understand what they expect
 5. **Read hints** -- Challenge descriptions, filenames, and comments often contain clues
 6. **Compare samples as bytes** -- If you collect tokens, ciphertexts, packets, or blobs, compare them in hex before assuming text or JSON
+7. **Expand observed route families** -- If recon finds a hidden prefix such as `/_m/`, `/internal/`, or `/api/v2/`, copy `~/.codex/ctf-snippets/endpoint_sibling_runner.py` into `work/` and run a capped endpoint-sibling verifier matrix before declaring that surface exhausted.
+8. **Bridge primitives across layers** -- If crypto, parser, or token work yields a forgery/replay primitive, add `H_web_bridge` to `solve_log.md` and revisit verifier, forge, relay, grant, issue, and sign endpoints that might consume the crafted object.
 
 ### Step 2: Categorize
 
@@ -181,6 +183,10 @@ timeout 120s python3 work/binary_sample_triage.py sample1.bin sample2.bin
 # Raw socket HTTP / smuggling mutation workflow
 cp ~/.codex/ctf-snippets/raw_http_socket.py work/raw_http_socket.py
 timeout 120s python3 work/raw_http_socket.py
+
+# Scoped endpoint-sibling verifier matrix
+cp ~/.codex/ctf-snippets/endpoint_sibling_runner.py work/endpoint_sibling_runner.py
+timeout 120s python3 work/endpoint_sibling_runner.py --base-url "$URL" --observed /_m/session --observed /_m/mirror --oracle-text flag --same-session --matrix
 ```
 
 ## Challenge

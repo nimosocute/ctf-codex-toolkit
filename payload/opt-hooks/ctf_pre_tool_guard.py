@@ -25,10 +25,15 @@ UNCONDITIONAL_SHELL_PATTERNS = [
     r"\bxargs\s+-P\b",
     r"\bparallel\b",
     r"\b(hashcat|john|hydra|medusa|ncrack|sqlmap|crunch|cewl)\b",
-    r"\b(ffuf|wfuzz|gobuster|feroxbuster|dirsearch)\b.*\s-w\b",
     r"\bbrute[-_ ]?force\b",
     r"\bpython3?\b.+(brute|crack)",
 ]
+FUZZER_COMMANDS = {"ffuf", "wfuzz", "gobuster", "feroxbuster", "dirsearch"}
+FUZZ_ORACLE_FLAGS = {
+    "-mc", "-mr", "-ms", "-ml", "-mw", "-fc", "-fr", "-fs", "-fl", "-fw",
+    "--match-codes", "--match-regex", "--match-size", "--match-lines", "--match-words",
+    "--filter-codes", "--filter-regex", "--filter-size", "--filter-lines", "--filter-words",
+}
 
 CONDITIONAL_LOOP_PATTERNS = [
     r"\bseq\b.+\|",
@@ -291,6 +296,119 @@ def split_leading_env_assignments(args: list[str]) -> tuple[dict[str, str], list
         env[key] = value
         idx += 1
     return env, args[idx:]
+
+
+def env_value(name: str, extra_env: dict[str, str] | None = None) -> str:
+    if extra_env and name in extra_env:
+        return extra_env.get(name, "")
+    return os.environ.get(name, "")
+
+
+def is_fuzzer_wordlist_command(args: list[str]) -> bool:
+    if not args:
+        return False
+    exe = Path(args[0]).name
+    if exe not in FUZZER_COMMANDS:
+        return False
+    return any(arg == "-w" or arg.startswith("-w=") or arg.startswith("-w") or arg == "--wordlist" or arg.startswith("--wordlist=") for arg in args[1:])
+
+
+def wordlist_arg(args: list[str]) -> str:
+    for idx, arg in enumerate(args[1:], start=1):
+        if arg in {"-w", "--wordlist"} and idx + 1 < len(args):
+            return args[idx + 1]
+        if arg.startswith("-w="):
+            return arg.split("=", 1)[1]
+        if arg.startswith("--wordlist="):
+            return arg.split("=", 1)[1]
+        if arg.startswith("-w") and len(arg) > 2:
+            return arg[2:]
+    return ""
+
+
+def normalize_wordlist_path(raw: str) -> str:
+    raw = raw.strip().strip("'\"")
+    if ":" in raw and not re.match(r"^[A-Za-z]:[\\/]", raw):
+        raw = raw.split(":", 1)[0]
+    return raw
+
+
+def count_small_wordlist(raw: str, cwd: Path, root_path: Path) -> int | None:
+    raw = normalize_wordlist_path(raw)
+    if not raw or raw.startswith("<("):
+        return None
+    path = canonical_path(workspace_path(raw, cwd))
+    if not (same_path(path, root_path) or path_inside(path, root_path)):
+        return None
+    try:
+        count = 0
+        with path.open("r", encoding="utf-8", errors="ignore") as handle:
+            for line in handle:
+                text = line.strip()
+                if not text or text.startswith("#"):
+                    continue
+                count += 1
+                if count > 20:
+                    return count
+        return count
+    except OSError:
+        return None
+
+
+def env_candidate_count(extra_env: dict[str, str] | None = None) -> int | None:
+    raw = env_value("CTF_CANDIDATES", extra_env).strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def has_fuzz_oracle(args: list[str], command: str, extra_env: dict[str, str] | None = None) -> bool:
+    if env_value("CTF_FUZZ_ORACLE", extra_env).strip() or env_value("CTF_ORACLE", extra_env).strip():
+        return True
+    for arg in args[1:]:
+        if arg in FUZZ_ORACLE_FLAGS:
+            return True
+        if any(arg.startswith(flag + "=") for flag in FUZZ_ORACLE_FLAGS):
+            return True
+    return bool(re.search(r"\boracle\b", command, re.IGNORECASE))
+
+
+def has_observed_prefix_marker(command: str, extra_env: dict[str, str] | None = None) -> bool:
+    prefix = env_value("CTF_OBSERVED_PREFIX", extra_env).strip()
+    if prefix and prefix.startswith("/") and prefix != "/":
+        return True
+    return bool(re.search(r"https?://[^\s'\"<>]+/[A-Za-z0-9_.~-]+/FUZZ\b", command))
+
+
+def small_endpoint_fuzz_allowed(args: list[str], command: str, cwd: Path, root_path: Path, extra_env: dict[str, str] | None = None) -> bool:
+    if not is_fuzzer_wordlist_command(args):
+        return True
+    if not env_truthy("CTF_SMALL_FUZZ", extra_env):
+        return False
+    if not has_observed_prefix_marker(command, extra_env):
+        return False
+    if not has_fuzz_oracle(args, command, extra_env):
+        return False
+    count = count_small_wordlist(wordlist_arg(args), cwd, root_path)
+    declared_count = env_candidate_count(extra_env)
+    if count is not None and 0 < count <= 20:
+        return declared_count is None or declared_count <= 20
+    if count is not None:
+        return False
+    return declared_count is not None and 0 < declared_count <= 20
+
+
+def small_endpoint_fuzz_command_allowed(command: str, cwd: Path, root_path: Path) -> bool:
+    for segment in split_shell_segments(command):
+        raw_args = parse_args(segment)
+        args = unwrap_timeout(raw_args)
+        extra_env, args = split_leading_env_assignments(args)
+        if is_fuzzer_wordlist_command(args):
+            return small_endpoint_fuzz_allowed(args, segment, cwd, root_path, extra_env)
+    return False
 
 
 def inline_payload_from_args(args: list[str]) -> tuple[str, str] | None:
@@ -847,8 +965,9 @@ def guard_secrets(command: str, cwd: Path, root_path: Path) -> None:
             deny("Blocked: command references private operator material outside the challenge workspace: " + ", ".join(hits[:5]))
 
 def guard_bash(command: str, cwd: Path, root_path: Path, depth: int = 0, timeout_ok: bool = False) -> None:
+    small_fuzz_ok = small_endpoint_fuzz_command_allowed(command, cwd, root_path)
     regex_block(command, UNCONDITIONAL_SHELL_PATTERNS, "command", "candidate-loop command")
-    if CANDIDATE_HINT_RE.search(command):
+    if CANDIDATE_HINT_RE.search(command) and not small_fuzz_ok:
         regex_block(command, CONDITIONAL_LOOP_PATTERNS, "command", "candidate-loop command")
     guard_secrets(command, cwd, root_path)
 
@@ -875,6 +994,13 @@ def guard_bash(command: str, cwd: Path, root_path: Path, depth: int = 0, timeout
             current_cwd = canonical_path(new_cwd)
             continue
 
+        if is_fuzzer_wordlist_command(args) and not small_endpoint_fuzz_allowed(args, segment, current_cwd, root_path, extra_env):
+            deny(
+                "Blocked: broad endpoint fuzzing. For narrow route-family probing, use "
+                "`work/endpoint_sibling_runner.py` or prefix the fuzzer with "
+                "`CTF_SMALL_FUZZ=1 CTF_CANDIDATES=<20-or-less> CTF_FUZZ_ORACLE=<oracle> "
+                "CTF_OBSERVED_PREFIX=/prefix/` and a workspace wordlist containing 20 candidates or fewer."
+            )
         guard_network(args, segment, current_cwd, root_path, extra_env)
         http_issue = inline_http_payload_issue(args)
         if http_issue:

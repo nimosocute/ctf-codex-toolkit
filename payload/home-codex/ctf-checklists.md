@@ -14,6 +14,7 @@ Classify the challenge type first. Use only the relevant checklist.
 - **Advanced Recon**: API/GraphQL endpoints, JS bundles (webpack/parcel), backup files (`.bak`, `~`), parameter discovery (`arjun`).
 - **Surface Expansion**: Directory/Content brute-force (`ffuf`, `gobuster`, `feroxbuster`), vhost enumeration, subdomains.
 - **Contextual Fuzzing**: If you discover a hidden prefix such as `/_m/`, `/internal/`, or `/api/v2/`, build a small wordlist from local context before broad fuzzing. Pair observed nouns with likely verbs such as `mint`, `forge`, `issue`, `sign`, `grant`, `relay`, `mirror`, `seed`, `sync`, `debug`, `admin`.
+- **Endpoint-Sibling Runner**: Before giving up on a hidden prefix, copy `~/.codex/ctf-snippets/endpoint_sibling_runner.py` into `work/`, keep the candidate list at 20 routes or fewer, and run the verifier matrix with same session, same client public value/key, forged packet/body, candidate endpoint, oracle, and saved evidence.
 - **Smuggling Mutation**: Test raw-header parser disagreements with a byte-exact client, not normalized libraries. Try `Transfer-Encoding: chunked `, `Transfer-Encoding : chunked`, `Content-Length :`, duplicated headers, `_m/Content-Length`, lone `\n`, mixed casing, and conflicting TE/CL combinations.
 - **Tooling**: Use **Burp Suite** (Proxy, Repeater, Intruder) for all manual probes.
 - **Vulnerability Classes**:
@@ -38,6 +39,7 @@ Classify the challenge type first. Use only the relevant checklist.
   - **Block Ciphers / Symm**: CBC Bit-flipping, ECB Byte-at-a-time (oracle), Padding Oracle (Vaudenay), Nonce reuse in CTR/GCM.
   - **Discrete Log**: Pohlig-Hellman, Baby-step Giant-step.
   - **Hash & RNG**: Collision (MD5/SHA1), Multi-collisions, Length extension. RNG prediction (LCG, Mersenne Twister / randcrack).
+- **Bridge Back to Web**: If a primitive enables forgery, replay, or packet crafting, immediately test whether web verifier/forge/relay endpoints accept it. Record the `H_web_bridge` hypothesis and verifier matrix before moving on.
 - **Tooling**: **SageMath** (for LLL, ECC, complex modular math), `RsaCtfTool`, `factordb`, `CyberChef`.
 
 ### Pwn
@@ -111,3 +113,4 @@ Use this order for every challenge: inventory → classify → load correct ctf-
 ### Web first checks
 - Source/HTML, headers, cookies/session behavior, endpoints, auth flow, JS routes, robots/sitemap/static files, API behavior.
 - If one hidden route exists, infer likely siblings from naming conventions before assuming the route list is complete.
+- Endpoint sibling quick command: `cp ~/.codex/ctf-snippets/endpoint_sibling_runner.py work/endpoint_sibling_runner.py && timeout 120s python3 work/endpoint_sibling_runner.py --base-url "$URL" --observed /_m/session --observed /_m/mirror --oracle-text flag --same-session --matrix`.

@@ -54,9 +54,12 @@ do not redo steps that the log shows are already done.
 - Treat every discovered endpoint, port, cookie shape, token shape, or protocol field as a surface family, not a one-off string.
 - If you find one hidden route such as `/_m/session` or `/_m/mirror`, infer adjacent verbs and nouns that fit the product language before giving up on hidden routes.
 - Prefer contextual fuzzing over static wordlists: reuse observed nouns and pair them with likely neighbors such as `mint`, `forge`, `issue`, `sign`, `grant`, `relay`, `mirror`, `seed`, `debug`, `sync`, `admin`.
+- For hidden route families, copy `~/.codex/ctf-snippets/endpoint_sibling_runner.py` to `work/endpoint_sibling_runner.py` and run a capped endpoint-sibling pass before declaring the family exhausted.
+- Endpoint-sibling probing must include a verifier matrix when relevant: same session, same client public value/key, forged packet/body, candidate endpoint, oracle result, and saved evidence path. Log the matrix summary in `solve_log.md`.
 - When data is not clearly text, inspect it as bytes/hex/base64 first. Null bytes, fixed offsets, and repeated block sizes are evidence against JSON/text assumptions.
 - If two samples differ only at stable offsets, treat the object as a fixed-layout record or struct. Record the offsets and test one field at a time.
 - When one layer yields a primitive such as nonce reuse, token forgery, or parser confusion, immediately revisit every other layer that might accept the forged object.
+- If you find a crypto primitive such as nonce reuse, MAC/GCM forgery, replay, signature bypass, or token forgery, add a web bridge hypothesis (`H_web_bridge`) and test verifier/forge/relay endpoints before finalizing the path.
 
 ## Pivot
 Pause a path after ~8 commands with no useful evidence, the same error 3×, or
@@ -98,6 +101,7 @@ hypothesis STUCK in the table, and pick another unexplored surface.
 
   If any field is unknown, do not run it.
   After 2 failed candidate-search attempts, add the path to Do Not Repeat and pivot. Do not try variants of the same search.
+  Narrow endpoint-sibling probing is not broad brute force when all are true: it stays under the observed route prefix, uses 20 candidates or fewer, records a validation oracle, and is logged in `solve_log.md`. Use `work/endpoint_sibling_runner.py`, or for ffuf/gobuster-style tools prefix the command with `CTF_SMALL_FUZZ=1 CTF_CANDIDATES=<20-or-less> CTF_FUZZ_ORACLE=<oracle> CTF_OBSERVED_PREFIX=/prefix/`.
 
 ## Internet access and scope notes
 - Internet access is allowed by default for CTF recon, documentation lookup, source review, package downloads, and local tool installation.
@@ -147,6 +151,7 @@ path / endpoint, (4) minimal proof commands.
 - Do not paste raw command logs into context. Raw transcripts are already under `~/.codex/sessions/`. Put long analysis in `work/notes.md`, summarize final state in `solve_log.md`.
 - Default long command policy: solve/build/test commands must be wrapped with `timeout 120s` unless the command is obviously read-only and quick.
 - Long scans, mass extraction, brute force, broad enumeration, and candidate loops require explicit user approval.
+- Exception: a scoped endpoint-sibling pass with 20 candidates or fewer, an observed prefix, and an explicit oracle is allowed without additional approval because it is a verifier-driven route-family test, not broad fuzzing.
 - Internet access is allowed by default for CTF work, docs, source review, package downloads, and local tool installation. Record target hosts in `scope.txt` when useful for provenance; set `CTF_STRICT_SCOPE=1` only when a run needs hard target allowlisting.
 - Secret handling: never print, copy, archive, report, export, or include `auth.json`, cookies, tokens, `.env`, private keys, SSH keys, API keys, or session files. Redact secrets before evidence/reporting.
 - Reusable templates live outside skills in `~/.codex/ctf-snippets/`. Copy/adapt them into `work/` inside the challenge workspace when needed.

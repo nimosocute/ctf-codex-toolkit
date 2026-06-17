@@ -65,7 +65,7 @@ This repository packages the operational pieces needed to run Codex as a CTF ass
 | Health checks | One-shot environment inventory for CTF tools, providers, Browser Arm, hooks |
 | CTF tools | Required bootstrap for the tools listed in `tools_inventory.md` |
 | Browser support | Optional isolated Browser Arm venv using pinned `cloakbrowser==0.3.31` |
-| Navigation helpers | Contextual fuzzing guidance, binary-first sample triage, raw-socket HTTP mutation templates, and rabbit-hole audit hints |
+| Navigation helpers | Contextual fuzzing guidance, scoped endpoint-sibling verifier matrix runner, binary-first sample triage, raw-socket HTTP mutation templates, and rabbit-hole audit hints |
 | Launchers | `/usr/local/bin/ctf-codex <challenge>` for daily use; `ctf-codex-toolkit <challenge>` also works after a global npm install |
 | WSL integration | When run inside Kali WSL, writes the Windows `.ps1`/`.cmd` launcher and Desktop shortcut |
 | Workspace layout | Per-challenge directories under a user-selected CTF root |
@@ -129,7 +129,7 @@ For a pinned global install:
 ```bash
 npm config set prefix ~/.npm-global
 export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g ctf-codex-toolkit@0.1.26
+npm install -g ctf-codex-toolkit@0.1.27
 ctf-codex-toolkit setup
 ```
 
@@ -557,7 +557,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.26 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.27 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:
@@ -652,7 +652,7 @@ Repo này đóng gói các phần cần thiết để chạy Codex như một tr
 | Health checks | Kiểm tra nhanh payload, tools, provider readiness, Browser Arm, hooks |
 | CTF tools | Bootstrap các tool trong `tools_inventory.md` |
 | Browser support | Browser Arm tùy chọn, dùng venv riêng với `cloakbrowser==0.3.31` |
-| Navigation helpers | Hướng dẫn fuzzing theo ngữ cảnh, triage nhị phân theo byte, template raw-socket HTTP mutation, và gợi ý nhận diện rabbit hole |
+| Navigation helpers | Hướng dẫn fuzzing theo ngữ cảnh, runner endpoint-sibling verifier matrix có scope, triage nhị phân theo byte, template raw-socket HTTP mutation, và gợi ý nhận diện rabbit hole |
 | Launchers | `/usr/local/bin/ctf-codex <challenge>` cho sử dụng hằng ngày; `ctf-codex-toolkit <challenge>` cũng dùng được nếu đã cài npm global |
 | WSL integration | Khi chạy trong Kali WSL, tạo Windows `.ps1`/`.cmd` launcher và Desktop shortcut |
 | Workspace layout | Mỗi challenge có thư mục riêng dưới CTF root |
@@ -718,7 +718,7 @@ Cài global theo version cố định:
 ```bash
 npm config set prefix ~/.npm-global
 export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g ctf-codex-toolkit@0.1.26
+npm install -g ctf-codex-toolkit@0.1.27
 ctf-codex-toolkit setup
 ```
 
@@ -1166,7 +1166,7 @@ Regression checks hiện có:
 Nên dùng package npm đã publish cho cài đặt thông thường:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.1.26 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.27 -- ctf-codex-toolkit setup
 ```
 
 Dạng cài từ GitHub sẽ chạy trực tiếp nội dung repository:

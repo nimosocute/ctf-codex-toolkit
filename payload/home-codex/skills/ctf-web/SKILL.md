@@ -75,6 +75,7 @@ go install github.com/ffuf/ffuf/v2@latest
 3. Enumerate hidden functionality from JS bundles, response headers, routes, and alternate methods.
 4. Classify the likely bug family: injection, authz, parser mismatch, upload, trust proxy, state machine, or client-side execution.
 5. Build the smallest proof first: leak, bypass, or primitive. Save full exploit chaining for later.
+6. If you discover a hidden prefix, run a capped endpoint-sibling verifier pass before broad fuzzing: copy `~/.codex/ctf-snippets/endpoint_sibling_runner.py` into `work/`, keep 20 candidates or fewer, and test same session, same client public value/key, forged packet/body, candidate route, and oracle result.
 
 ## Quick Start Commands
 
@@ -83,6 +84,10 @@ go install github.com/ffuf/ffuf/v2@latest
 curl -sI https://target.com
 ffuf -u https://target.com/FUZZ -w wordlist.txt
 curl -s https://target.com/robots.txt
+
+# Scoped hidden-prefix expansion
+cp ~/.codex/ctf-snippets/endpoint_sibling_runner.py work/endpoint_sibling_runner.py
+timeout 120s python3 work/endpoint_sibling_runner.py --base-url "$URL" --observed /_m/session --observed /_m/mirror --oracle-text flag --same-session --matrix
 
 # SQLi quick test
 sqlmap -u "https://target.com/page?id=1" --batch --dbs
@@ -116,6 +121,7 @@ curl -v -X POST https://target.com/api -H "Content-Type: application/json" -d '{
 - Check obvious metadata and helper paths early: `/robots.txt`, `/sitemap.xml`, `/.well-known/`, `/admin`, `/debug`, `/.git/`, `/.env`.
 - Try alternate verbs and content types on interesting routes: `GET`, `POST`, `PUT`, `PATCH`, `TRACE`, JSON, form, multipart, XML.
 - Treat file upload, PDF/export, webhook, OAuth callback, and admin bot features as likely exploit multipliers.
+- Treat one hidden endpoint as evidence of a surface family. A route-family pass with an observed prefix, a clear oracle, and 20 candidates or fewer is allowed as scoped probing; broad static wordlist fuzzing still needs explicit justification.
 
 ## Fast Pattern Map
 

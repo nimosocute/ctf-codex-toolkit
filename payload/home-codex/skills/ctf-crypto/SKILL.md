@@ -63,6 +63,7 @@ brew install hashcat
 - If the task is just implementing an exploit against a vulnerable network service after the crypto part is solved, switch to `/ctf-pwn` or `/ctf-web`.
 - If the crypto challenge involves adversarial ML, model extraction, or neural-network-based ciphers, switch to `/ctf-ai-ml`.
 - If the challenge is really an encoding puzzle, esoteric cipher, or polyglot trick rather than true cryptanalysis, switch to `/ctf-misc`.
+- If a recovered primitive creates a forged token, packet, signature, MAC, nonce-reuse exploit, or replay, immediately bridge back to web/API surfaces. Add `H_web_bridge` to `solve_log.md` and test verifier, forge, relay, grant, issue, sign, and check endpoints with a verifier matrix before declaring the crypto path complete.
 
 ## Quick Start Commands
 
@@ -86,6 +87,10 @@ hashcat --identify '<hash>'
 
 # SageMath (for lattice/ECC)
 sage -c "print(factor(<n>))"
+
+# Crypto-to-web bridge after a forgery primitive
+cp ~/.codex/ctf-snippets/endpoint_sibling_runner.py work/endpoint_sibling_runner.py
+timeout 120s python3 work/endpoint_sibling_runner.py --base-url "$URL" --observed /_m/session --observed /_m/mirror --payload-file evidence/forged_packet.bin --oracle-text flag --same-session --matrix
 ```
 
 ## Classic Ciphers
