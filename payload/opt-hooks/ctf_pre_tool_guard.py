@@ -70,6 +70,28 @@ NETWORK_COMMANDS = {
     "curl", "wget", "http", "https", "httpie", "nc", "ncat", "netcat", "socat", "nmap",
     "masscan", "ssh", "ftp", "sftp", "telnet", "websocat", "openssl",
 }
+HTTP_SCRIPT_ONLY_COMMANDS = {"curl", "wget", "http", "https", "httpie"}
+SHORT_HTTP_PAYLOAD_FLAGS = {"-A", "-H", "-X", "-b", "-d", "-e", "-F", "-T", "-u"}
+LONG_HTTP_PAYLOAD_FLAGS = {
+    "--cookie", "--cookie-jar", "--data", "--data-binary", "--data-raw", "--data-urlencode",
+    "--form", "--header", "--json", "--oauth2-bearer", "--proxy-header", "--referer", "--request",
+    "--upload-file", "--user", "--user-agent",
+}
+SENSITIVE_READ_COMMANDS = {"awk", "cat", "grep", "head", "less", "more", "nl", "sed", "strings", "tail"}
+SENSITIVE_LOCAL_READ_RE = re.compile(
+    r"^(?:[A-Za-z]:)?/(etc/(gshadow|group|hostname|hosts|issue|os-release|passwd|shadow|sudoers)"
+    r"|proc/(self|[0-9]+)/(cmdline|environ|maps)"
+    r"|root/\.ssh(?:/.*)?"
+    r"|home/[^/]+/\.ssh(?:/.*)?"
+    r"|var/www/[^/]+/\.env(?:\..*)?)$",
+    re.IGNORECASE,
+)
+INLINE_NETWORK_PAYLOAD_RE = re.compile(
+    r"\b(import\s+requests|from\s+requests\b|requests\.(delete|get|head|options|patch|post|put|request)\b|"
+    r"urllib\.request|httpx\b|aiohttp\b|socket\.create_connection\b|remote\(|"
+    r"from\s+pwn\s+import\b|import\s+pwn\b|https?://)",
+    re.IGNORECASE,
+)
 
 PRIVATE_MATERIAL_RE = re.compile(
     r"(^|/)(auth\.json|id_rsa|id_ed25519|known_hosts|authorized_keys)$|"
@@ -559,6 +581,68 @@ def host_from_urlish(token: str) -> str:
     return ""
 
 
+def inline_http_payload_issue(args: list[str]) -> str:
+    args = unwrap_timeout(args)
+    if not args:
+        return ""
+    exe = Path(args[0]).name.lower()
+    if exe not in HTTP_SCRIPT_ONLY_COMMANDS:
+        return ""
+
+    for arg in args[1:]:
+        if arg in SHORT_HTTP_PAYLOAD_FLAGS or arg in LONG_HTTP_PAYLOAD_FLAGS:
+            return arg
+        if any(arg.startswith(flag + "=") for flag in LONG_HTTP_PAYLOAD_FLAGS):
+            return arg.split("=", 1)[0]
+        if any(arg.startswith(flag) and len(arg) > len(flag) for flag in SHORT_HTTP_PAYLOAD_FLAGS):
+            return arg[:2]
+        if arg.startswith(("http://", "https://")):
+            parsed = urlparse(arg)
+            combined = f"{parsed.path}?{parsed.query}" if parsed.query else parsed.path
+            if re.search(r"/(etc/passwd|etc/shadow|proc/self/environ|\.env)(?:$|[/?#])", combined, re.IGNORECASE):
+                return "sensitive-file-probe"
+            if parsed.query and re.search(
+                r"(%[0-9A-Fa-f]{2}|['\"`]|\.{2}|{{|}}|\$\(|<|>|;|\||"
+                r"\b(select|union|sleep|load_file|passwd|shadow|proc/self|\.env)\b)",
+                combined,
+                re.IGNORECASE,
+            ):
+                return "url-query"
+    return ""
+
+
+def guard_sensitive_local_read(args: list[str], full_command: str, cwd: Path, root_path: Path) -> None:
+    args = unwrap_timeout(args)
+    if not args:
+        return
+    exe = Path(args[0]).name
+    if exe not in SENSITIVE_READ_COMMANDS:
+        return
+    if re.search(r"\bbase64\b", full_command, re.IGNORECASE):
+        return
+
+    for arg in args[1:]:
+        if arg == "--" or arg.startswith("-"):
+            continue
+        candidate = canonical_path(workspace_path(arg, cwd))
+        if candidate == root_path or path_inside(candidate, root_path):
+            continue
+        if SENSITIVE_LOCAL_READ_RE.search(as_display_path(candidate)):
+            deny(
+                "Blocked: direct read of sensitive local system file. "
+                "Encode the output first, for example `base64 < path`, instead of printing it raw."
+            )
+
+
+def inline_interpreter_requires_script(text: str, where: str) -> None:
+    if INLINE_NETWORK_PAYLOAD_RE.search(text):
+        deny(
+            f"Blocked: inline network/exploit code in {where}. "
+            "Write it to `work/exploit.py` (payloads may be Base64/Hex inside the script) "
+            "and run `timeout 120s python3 work/exploit.py`."
+        )
+
+
 def is_local_or_private(host: str) -> bool:
     if host in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}:
         return True
@@ -705,6 +789,15 @@ def guard_bash(command: str, cwd: Path, root_path: Path, depth: int = 0, timeout
             continue
 
         guard_network(args, segment, current_cwd)
+        http_issue = inline_http_payload_issue(args)
+        if http_issue:
+            deny(
+                "Blocked: inline HTTP payload request. "
+                f"Found `{http_issue}` in `{Path(args[0]).name}`. "
+                "Move the request into `work/exploit.py`, keep payloads in variables or Base64/Hex literals, "
+                "then run it as a file-based script."
+            )
+        guard_sensitive_local_read(args, command, current_cwd, root_path)
         if command_needs_timeout(args) and not segment_timeout_ok:
             deny(f"Blocked: long solve/build/test command `{Path(args[0]).name}` must be wrapped, e.g. `timeout {DEFAULT_TIMEOUT_SECONDS}s {segment}`.")
 
@@ -721,6 +814,7 @@ def guard_bash(command: str, cwd: Path, root_path: Path, depth: int = 0, timeout
         payload = inline_payload_from_args(args)
         if payload:
             text, where = payload
+            inline_interpreter_requires_script(text, where)
             scan_text_payload(text, where, python_ast=where.startswith("python"))
         for script_path in script_paths_from_args(args, current_cwd):
             scan_script(script_path, root_path)

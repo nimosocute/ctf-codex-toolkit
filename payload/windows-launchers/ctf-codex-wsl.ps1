@@ -389,6 +389,14 @@ For web challenges, use standard HTTP tools (`curl`, Python3 `requests`, etc.) o
 - Standard tools: APIs, backend SQLi/SSTI, simple parameter manipulation.
 - Browser Arm: client-side JS, DOM-XSS, SPAs, CAPTCHA, complex visual elements.
 
+## Exploit Execution and Output Hygiene
+- Simple read-only HTTP recon can use `curl`.
+- If the request needs injected parameters, custom headers, cookies, POST bodies, auth state, traversal/LFI payloads, or multi-step exploit logic, move it into `work/exploit.py` instead of an inline `curl` or `python -c` one-liner.
+- Keep payloads in named Python variables. If helpful, store them as Base64/Hex in the script and decode them right before use.
+- Run exploit scripts from the workspace, for example `timeout 120s python3 work/exploit.py`.
+- If a response may contain system-file content such as `/etc/passwd`, `/proc/self/environ`, `.env`, keys, or tokens, save it under `evidence/` and inspect it in Base64/Hex before printing anything.
+- For local file reads, prefer `base64 < path>` over `cat path`.
+
 If using Browser Arm:
 1. Start or reuse: `python3 ~/.codex/tools/browser_arm/browser_server.py`
 2. Available actions: `goto`, `source_dump`, `ax_snapshot`, `network_logs`, `console_logs`, `storage`, `auto_watch`, `set_headers`.

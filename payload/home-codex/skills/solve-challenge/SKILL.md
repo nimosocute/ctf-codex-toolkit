@@ -23,6 +23,14 @@ There is no bundled central installer in this skill bundle. Do not call `scripts
 
 The optional Browser Arm helper at `~/.codex/tools/browser_arm/browser_server.py` imports `cloakbrowser`. If Browser Arm is needed and `cloakbrowser` is missing, install it in an isolated environment or document the existing local installation before use.
 
+### Exploit script rule
+
+Simple read-only HTTP recon can use `curl`, `nc`, or similar tools. Once you move beyond recon into injected parameters, custom headers, cookies, POST bodies, auth state, traversal/LFI probes, or multi-step exploit logic, switch to a file-based script in the workspace such as `work/exploit.py`.
+
+Copy `~/.codex/ctf-snippets/requests_exploit.py` into `work/exploit.py`, keep payloads in named variables, and Base64/Hex-encode them inside the script when that improves reuse or avoids noisy inline literals. Run it with `timeout 120s python3 work/exploit.py`.
+
+If a response may contain system-file content such as `/etc/passwd`, `/proc/self/environ`, `.env`, keys, or other sensitive text, save the body under `evidence/` and inspect it in Base64/Hex first instead of dumping raw text to stdout.
+
 ## Workflow
 
 ### Step 0: CTFd Platform Detection
@@ -51,6 +59,7 @@ Invoke `/ctf-misc` and load its `ctfd-navigation.md` for the full API reference 
 3. **Fetch links** -- If the challenge mentions URLs, fetch them FIRST for context
 4. **Connect** -- Try remote services (`nc`) to understand what they expect
 5. **Read hints** -- Challenge descriptions, filenames, and comments often contain clues
+6. **Compare samples as bytes** -- If you collect tokens, ciphertexts, packets, or blobs, compare them in hex before assuming text or JSON
 
 ### Step 2: Categorize
 
@@ -105,6 +114,7 @@ If your first approach doesn't work:
 3. **Look for what you missed** -- Hidden files, alternate ports, response headers, comments in source, metadata in images.
 4. **Simplify** -- If an exploit is too complex, check if there's a simpler path (default creds, known CVE, logic bug).
 5. **Check edge cases** -- Off-by-one, race conditions, integer overflow, encoding mismatches.
+6. **Audit for decoys** -- A verbose state machine is not proof of progress. If a path yields no new artifact, no cross-service state change, and no better verifier, freeze it and pivot.
 
 **Common multi-category patterns:**
 - Forensics + Crypto: encrypted data in PCAP/disk image, need crypto to decrypt
@@ -158,12 +168,17 @@ nc host port                              # Connect to challenge
 echo -e "answer1\nanswer2" | nc host port # Scripted input
 curl -v http://host:port/                 # HTTP recon
 
-# Python exploit template
-python3 -c "
-from pwn import *
-r = remote('host', port)
-r.interactive()
-"
+# File-based exploit workflow
+cp ~/.codex/ctf-snippets/requests_exploit.py work/exploit.py
+timeout 120s python3 work/exploit.py
+
+# Binary triage workflow
+cp ~/.codex/ctf-snippets/binary_sample_triage.py work/binary_sample_triage.py
+timeout 120s python3 work/binary_sample_triage.py sample1.bin sample2.bin
+
+# Raw socket HTTP / smuggling mutation workflow
+cp ~/.codex/ctf-snippets/raw_http_socket.py work/raw_http_socket.py
+timeout 120s python3 work/raw_http_socket.py
 ```
 
 ## Challenge

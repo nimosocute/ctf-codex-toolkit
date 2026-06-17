@@ -13,6 +13,8 @@ const required = [
   "payload/home-codex/AGENTS.md",
   "payload/home-codex/ctf-checklists.md",
   "payload/home-codex/tools_inventory.md",
+  "payload/home-codex/ctf-snippets/raw_http_socket.py",
+  "payload/home-codex/ctf-snippets/binary_sample_triage.py",
   "payload/home-codex/tools/ctf_health_check.py",
   "payload/home-codex/tools/browser_arm/browser_server.py",
   "payload/opt-hooks/ctf_pre_tool_guard.py",
@@ -113,6 +115,7 @@ if (packageJson.bin && Object.prototype.hasOwnProperty.call(packageJson.bin, "ct
 }
 
 const windowsLauncher = fs.readFileSync(path.join(root, "payload/windows-launchers/ctf-codex-wsl.ps1"), "utf8");
+const agentsPolicy = fs.readFileSync(path.join(root, "payload/home-codex/AGENTS.md"), "utf8");
 if (!windowsLauncher.includes("$CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot")) {
   console.error("Windows launcher must resolve CTF root to an absolute path before deriving _work paths");
   process.exit(1);
@@ -159,6 +162,18 @@ if (
 }
 if (windowsLauncher.includes('"--exec", "bash", "-li", "-c"')) {
   console.error("Windows launcher must not pass long launch scripts through bash -li -c");
+  process.exit(1);
+}
+if (!windowsLauncher.includes("work/exploit.py") || !windowsLauncher.includes("base64 < path")) {
+  console.error("Windows launcher workspace AGENTS must enforce file-based exploit execution and base64-first file inspection");
+  process.exit(1);
+}
+if (!agentsPolicy.includes("work/exploit.py") || !agentsPolicy.includes("Base64/Hex")) {
+  console.error("Global AGENTS policy must mention file-based exploit execution and Base64/Hex handling");
+  process.exit(1);
+}
+if (!agentsPolicy.includes("contextual fuzzing") || !agentsPolicy.includes("rabbit hole")) {
+  console.error("Global AGENTS policy must mention contextual fuzzing and rabbit-hole handling");
   process.exit(1);
 }
 
@@ -223,12 +238,94 @@ if (safePatch.status !== 0) {
   process.exit(1);
 }
 
+const inlineCurlPayload = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "curl -s -H 'X-Test: payload' 'http://127.0.0.1:8000/'"
+  }
+});
+if (inlineCurlPayload.status === 0 || !`${inlineCurlPayload.stderr}${inlineCurlPayload.stdout}`.includes("inline HTTP payload request")) {
+  console.error("pre-tool guard must reject inline curl payload requests");
+  console.error(inlineCurlPayload.stdout);
+  console.error(inlineCurlPayload.stderr);
+  process.exit(1);
+}
+
+const inlinePythonExploit = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "timeout 10s python3 -c \"import requests; requests.get('http://127.0.0.1:8000/')\""
+  }
+});
+if (inlinePythonExploit.status === 0 || !`${inlinePythonExploit.stderr}${inlinePythonExploit.stdout}`.includes("work/exploit.py")) {
+  console.error("pre-tool guard must reject inline interpreter exploit code");
+  console.error(inlinePythonExploit.stdout);
+  console.error(inlinePythonExploit.stderr);
+  process.exit(1);
+}
+
+const directSensitiveRead = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "cat /etc/passwd"
+  }
+});
+if (directSensitiveRead.status === 0 || !`${directSensitiveRead.stderr}${directSensitiveRead.stdout}`.includes("Encode the output first")) {
+  console.error("pre-tool guard must reject direct sensitive local file reads");
+  console.error(directSensitiveRead.stdout);
+  console.error(directSensitiveRead.stderr);
+  process.exit(1);
+}
+
+const encodedSensitiveRead = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "cat /etc/passwd | base64"
+  }
+});
+if (encodedSensitiveRead.status !== 0) {
+  console.error("pre-tool guard should allow encoded sensitive file reads");
+  console.error(encodedSensitiveRead.stdout);
+  console.error(encodedSensitiveRead.stderr);
+  process.exit(1);
+}
+
 fs.rmSync(guardTmp, { recursive: true, force: true });
 
 const browserServer = fs.readFileSync(path.join(root, "payload/home-codex/tools/browser_arm/browser_server.py"), "utf8");
 const browserClient = fs.readFileSync(path.join(root, "payload/home-codex/tools/browser_arm/browser_client.py"), "utf8");
 if (!browserServer.includes("BROWSER_TOKEN") || !browserServer.includes("Unauthorized browser control request") || !browserClient.includes("load_token")) {
   console.error("Browser Arm client/server must enforce a local shared token");
+  process.exit(1);
+}
+
+const requestsExploit = fs.readFileSync(path.join(root, "payload/home-codex/ctf-snippets/requests_exploit.py"), "utf8");
+if (
+  !requestsExploit.includes("PAYLOAD_ENCODING") ||
+  !requestsExploit.includes("saved_base64") ||
+  !requestsExploit.includes("body_base64_preview")
+) {
+  console.error("requests_exploit.py must expose payload encoding and base64 response capture");
+  process.exit(1);
+}
+
+const rawHttpSocket = fs.readFileSync(path.join(root, "payload/home-codex/ctf-snippets/raw_http_socket.py"), "utf8");
+if (!rawHttpSocket.includes("Transfer-Encoding: chunked ") || !rawHttpSocket.includes("Edit REQUEST")) {
+  console.error("raw_http_socket.py must preserve literal header mutation workflow");
+  process.exit(1);
+}
+
+const binarySampleTriage = fs.readFileSync(path.join(root, "payload/home-codex/ctf-snippets/binary_sample_triage.py"), "utf8");
+if (
+  !binarySampleTriage.includes("null_bytes") ||
+  !binarySampleTriage.includes("differing_offsets") ||
+  !binarySampleTriage.includes("struct alignment")
+) {
+  console.error("binary_sample_triage.py must report null-byte and offset-structure hints");
   process.exit(1);
 }
 

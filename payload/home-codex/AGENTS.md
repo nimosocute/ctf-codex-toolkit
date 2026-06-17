@@ -50,10 +50,19 @@ do not redo steps that the log shows are already done.
    challenge logic proves it is intended, or the search space is < 1 minute AND
    there is a clear validation oracle.
 
+## Navigation logic
+- Treat every discovered endpoint, port, cookie shape, token shape, or protocol field as a surface family, not a one-off string.
+- If you find one hidden route such as `/_m/session` or `/_m/mirror`, infer adjacent verbs and nouns that fit the product language before giving up on hidden routes.
+- Prefer contextual fuzzing over static wordlists: reuse observed nouns and pair them with likely neighbors such as `mint`, `forge`, `issue`, `sign`, `grant`, `relay`, `mirror`, `seed`, `debug`, `sync`, `admin`.
+- When data is not clearly text, inspect it as bytes/hex/base64 first. Null bytes, fixed offsets, and repeated block sizes are evidence against JSON/text assumptions.
+- If two samples differ only at stable offsets, treat the object as a fixed-layout record or struct. Record the offsets and test one field at a time.
+- When one layer yields a primitive such as nonce reuse, token forgery, or parser confusion, immediately revisit every other layer that might accept the forged object.
+
 ## Pivot
 Pause a path after ~8 commands with no useful evidence, the same error 3×, or
 when it needs broad brute force with no oracle. Log the blocker, mark the
 hypothesis STUCK in the table, and pick another unexplored surface.
+- If a port, endpoint, or state machine consumes substantial time but produces no new artifact, no state change elsewhere, and no verifier improvement, freeze it as a likely rabbit hole, record it in `solve_log.md`, and pivot.
 
 ## Verifier and Hypothesis Reliability
   - Before deep exploitation, define the exact evidence that would prove the flag, the command or procedure that verifies
@@ -102,6 +111,15 @@ hypothesis STUCK in the table, and pick another unexplored surface.
 For web challenges, you can use standard HTTP tools (`curl`, Python3 `requests`, etc.) OR the Browser Arm. Choose based on the challenge:
 - **Standard Tools**: Best for APIs, pure backend SQLi/SSTI, or simple parameter manipulation.
 - **Browser Arm**: Best for Client-side JS, DOM-XSS, SPAs, CAPTCHA, or complex visual elements.
+
+## Exploit Execution and Output Hygiene
+- Simple read-only HTTP recon is fine with `curl`, for example landing pages, headers, `robots.txt`, or a small health-check request.
+- Once a request includes injected parameters, custom headers, cookies, POST bodies, auth state, path traversal, LFI/RFI probes, or other exploit payloads, stop using inline `curl`/`wget`/`python -c` one-liners.
+- Copy a reusable template into the workspace, usually `cp ~/.codex/ctf-snippets/requests_exploit.py work/exploit.py`, then keep payloads in named variables inside that file.
+- If a payload is noisy or sensitive, encode it in the script with Base64 or Hex and decode it in the script right before use.
+- Run exploit automation from the workspace as a file-based command, for example `timeout 120s python3 work/exploit.py`.
+- If a response may contain system-file content such as `/etc/passwd`, `/proc/self/environ`, `.env`, keys, or other sensitive text, do not dump it raw to stdout or the final answer.
+- Save that response under `evidence/` and inspect or print it in Base64/Hex first. For local file views, prefer `base64 < path>` over `cat path`.
 
 **If you choose to use the Browser Arm:**
 1. Start or reuse the server: `python3 "$HOME/.codex/tools/browser_arm/browser_server.py"`

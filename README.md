@@ -61,10 +61,11 @@ This repository packages the operational pieces needed to run Codex as a CTF ass
 | --- | --- |
 | Codex CTF policy | Managed `AGENTS.md`, category routing, workflow guidance |
 | Skills | Web, pwn, crypto, reverse, forensics, OSINT, malware, AI/ML, misc, solve dispatcher, writeup |
-| Guard hooks | Pre-tool checks for broad scans, high-risk commands, and oversized candidate loops |
+| Guard hooks | Pre-tool checks for broad scans, high-risk commands, oversized candidate loops, and inline exploit payloads that should move into `work/exploit.py` |
 | Health checks | One-shot environment inventory for CTF tools, providers, Browser Arm, hooks |
 | CTF tools | Required bootstrap for the tools listed in `tools_inventory.md` |
 | Browser support | Optional isolated Browser Arm venv using pinned `cloakbrowser==0.3.31` |
+| Navigation helpers | Contextual fuzzing guidance, binary-first sample triage, raw-socket HTTP mutation templates, and rabbit-hole audit hints |
 | Launchers | `/usr/local/bin/ctf-codex <challenge>` for daily use; `ctf-codex-toolkit <challenge>` also works after a global npm install |
 | WSL integration | When run inside Kali WSL, writes the Windows `.ps1`/`.cmd` launcher and Desktop shortcut |
 | Workspace layout | Per-challenge directories under a user-selected CTF root |
@@ -141,19 +142,19 @@ npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
 Start a challenge session after setup:
 
 ```bash
-ctf-codex <challenge>
+ctf-codex my_challenge
 ```
 
 Resume the last session for a challenge:
 
 ```bash
-ctf-codex <challenge> -Resume
+ctf-codex my_challenge -Resume
 ```
 
 If you installed globally, this also works:
 
 ```bash
-ctf-codex-toolkit <challenge>
+ctf-codex-toolkit my_challenge
 ```
 
 Install directly from GitHub when testing unreleased changes:
@@ -173,13 +174,13 @@ Desktop\CTF Codex WSL.lnk
 When prompted, type a challenge name such as:
 
 ```text
-bachdeptrai
+bachcube
 ```
 
 The launcher finds or creates:
 
 ```text
-<ctf-root>/_work/bachdeptrai
+<ctf-root>/_work/bachcube
 ```
 
 It then starts Codex inside that workspace. To continue an earlier Codex conversation, use Codex's built-in command inside the Codex session:
@@ -188,10 +189,10 @@ It then starts Codex inside that workspace. To continue an earlier Codex convers
 /resume
 ```
 
-On native Kali, use the same challenge name with `ctf-codex`. For example, if the challenge is named `bachdeptrai`, the workspace is `<ctf-root>/_work/bachdeptrai`; replace `<challenge>` with your actual challenge name:
+On native Kali, the equivalent command is:
 
 ```bash
-ctf-codex <challenge>
+ctf-codex bachcube
 ```
 
 To update the Kali payload and Windows shortcut later:
@@ -225,7 +226,7 @@ Use a non-default CTF root:
 
 ```bash
 npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --ctf-root ~/ctf
-ctf-codex <challenge> --ctf-root ~/ctf
+ctf-codex my_challenge --ctf-root ~/ctf
 ```
 
 During `setup` or `install`, the CLI asks where to place the CTF workspace root and stores the answer in:
@@ -293,21 +294,14 @@ After setup, challenge sessions run under:
 Global install inside Kali is recommended for regular use, because it makes all `ctf-codex-toolkit ...` management commands available directly. If you used one-shot `npm exec`, run management commands through `npm exec` again. The installed daily challenge launcher is always `ctf-codex`.
 
 ```text
-ctf-codex-toolkit --help
-ctf-codex-toolkit -h
-ctf-codex-toolkit --version
-ctf-codex-toolkit version
 ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
 ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
-ctf-codex --help
 ctf-codex <challenge> [-Resume] [--ctf-root <path>]
 ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]  # only if globally installed
-ctf-codex-workflow <command-or-challenge> [options]
-ctf-codex-wsl <command-or-challenge> [options]
 ```
 
 Example without a global install:
@@ -321,9 +315,8 @@ Compatibility aliases:
 ```text
 ctf-codex-workflow
 ctf-codex-wsl
+ctf-codex
 ```
-
-`ctf-codex` is the daily launcher installed by `ctf-codex-toolkit setup`; it is not an npm bin alias.
 
 `setup` is the usual entry point. It runs `install` and then `health`.
 
@@ -431,8 +424,8 @@ That directory becomes the working directory for Codex.
 Example:
 
 ```bash
-ctf-codex <challenge>
-ctf-codex <challenge> -Resume
+ctf-codex-toolkit web_login
+ctf-codex-toolkit web_login -Resume
 ```
 
 ## Skill Credits and Updates
@@ -529,7 +522,7 @@ On minimal Kali, `setup` installs and verifies the inventory tools first, includ
 
 ## Safety Model
 
-The pre-tool guard blocks high-risk automated attack commands and broad candidate searches while allowing small deterministic loops. Path containment checks canonicalize paths before comparison, so `..` traversal through patch/edit/write targets is rejected before tools run.
+The pre-tool guard blocks high-risk automated attack commands and broad candidate searches while allowing small deterministic loops. It also nudges exploit automation toward file-based execution by rejecting inline HTTP payload requests that should live in `work/exploit.py`, and it blocks direct local reads of sensitive system files unless they are encoded first. Path containment checks canonicalize paths before comparison, so `..` traversal through patch/edit/write targets is rejected before tools run.
 
 This is defense-in-depth for common mistakes. It is not a sandbox, not a security boundary, and not a substitute for running Codex inside a scoped CTF workspace. Static script scanning is best-effort: inline `python -c`/`node -e` payloads and script files are inspected, but code supplied through pipes or heredocs is not fully parsed before interpreter startup.
 
@@ -542,6 +535,8 @@ Current regression checks include:
 - `range(2**10)` allowed
 - small shell `for` loops allowed
 - `hashcat` blocked
+- inline `curl -d ...` or `curl -H ...` exploit payloads blocked and redirected to `work/exploit.py`
+- direct `cat /etc/passwd` blocked unless the command encodes the output first
 
 ## Supply Chain Notes
 
@@ -639,10 +634,11 @@ Repo này đóng gói các phần cần thiết để chạy Codex như một tr
 | --- | --- |
 | Chính sách Codex CTF | `AGENTS.md` được quản lý, định tuyến category, hướng dẫn workflow |
 | Skills | Web, pwn, crypto, reverse, forensics, OSINT, malware, AI/ML, misc, solve dispatcher, writeup |
-| Guard hooks | Kiểm tra trước khi chạy tool để chặn scan rộng, lệnh rủi ro cao, vòng lặp candidate quá lớn |
+| Guard hooks | Kiểm tra trước khi chạy tool để chặn scan rộng, lệnh rủi ro cao, vòng lặp candidate quá lớn, và payload exploit inline nên chuyển vào `work/exploit.py` |
 | Health checks | Kiểm tra nhanh payload, tools, provider readiness, Browser Arm, hooks |
 | CTF tools | Bootstrap các tool trong `tools_inventory.md` |
 | Browser support | Browser Arm tùy chọn, dùng venv riêng với `cloakbrowser==0.3.31` |
+| Navigation helpers | Hướng dẫn fuzzing theo ngữ cảnh, triage nhị phân theo byte, template raw-socket HTTP mutation, và gợi ý nhận diện rabbit hole |
 | Launchers | `/usr/local/bin/ctf-codex <challenge>` cho sử dụng hằng ngày; `ctf-codex-toolkit <challenge>` cũng dùng được nếu đã cài npm global |
 | WSL integration | Khi chạy trong Kali WSL, tạo Windows `.ps1`/`.cmd` launcher và Desktop shortcut |
 | Workspace layout | Mỗi challenge có thư mục riêng dưới CTF root |
@@ -721,19 +717,19 @@ npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup
 Mở một challenge sau khi setup:
 
 ```bash
-ctf-codex <challenge>
+ctf-codex my_challenge
 ```
 
 Resume session cuối của challenge:
 
 ```bash
-ctf-codex <challenge> -Resume
+ctf-codex my_challenge -Resume
 ```
 
 Nếu đã cài global, lệnh này cũng dùng được:
 
 ```bash
-ctf-codex-toolkit <challenge>
+ctf-codex-toolkit my_challenge
 ```
 
 Cài trực tiếp từ GitHub khi test thay đổi chưa release:
@@ -755,13 +751,13 @@ Desktop\CTF Codex WSL.lnk
 Khi được hỏi, nhập tên bài, ví dụ:
 
 ```text
-bachdeptrai
+bachcube
 ```
 
 Launcher sẽ tìm hoặc tạo:
 
 ```text
-<ctf-root>/_work/bachdeptrai
+<ctf-root>/_work/bachcube
 ```
 
 Sau đó launcher mở Codex ngay trong workspace đó. Nếu muốn quay lại đoạn chat trước trong Codex, dùng lệnh có sẵn của Codex trong phiên Codex:
@@ -770,10 +766,10 @@ Sau đó launcher mở Codex ngay trong workspace đó. Nếu muốn quay lại 
 /resume
 ```
 
-Trên Kali native, dùng cùng tên bài với `ctf-codex`. Ví dụ nếu bài tên là `bachdeptrai`, workspace sẽ là `<ctf-root>/_work/bachdeptrai`; hãy thay `<challenge>` bằng tên bài thật:
+Trên Kali native, lệnh tương đương là:
 
 ```bash
-ctf-codex <challenge>
+ctf-codex bachcube
 ```
 
 Khi cần cập nhật payload Kali và Windows shortcut:
@@ -809,7 +805,7 @@ Dùng CTF root khác mặc định:
 
 ```bash
 npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --ctf-root ~/ctf
-ctf-codex <challenge> --ctf-root ~/ctf
+ctf-codex my_challenge --ctf-root ~/ctf
 ```
 
 Trong lúc `setup` hoặc `install`, CLI hỏi nơi đặt CTF workspace root và lưu vào:
@@ -881,21 +877,14 @@ Sau setup, session challenge chạy dưới:
 Cài global trong Kali là cách khuyến nghị nếu dùng thường xuyên, vì mọi lệnh quản trị `ctf-codex-toolkit ...` sẽ gọi trực tiếp được. Nếu dùng one-shot `npm exec`, các lệnh quản trị cần chạy qua `npm exec` lại. Launcher mở bài hằng ngày luôn được cài là `ctf-codex`.
 
 ```text
-ctf-codex-toolkit --help
-ctf-codex-toolkit -h
-ctf-codex-toolkit --version
-ctf-codex-toolkit version
 ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
 ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
 ctf-codex-toolkit install-launchers
-ctf-codex --help
 ctf-codex <challenge> [-Resume] [--ctf-root <path>]
 ctf-codex-toolkit <challenge> [-Resume] [--ctf-root <path>]  # chỉ khi đã cài global
-ctf-codex-workflow <command-or-challenge> [options]
-ctf-codex-wsl <command-or-challenge> [options]
 ```
 
 Ví dụ không cài global:
@@ -909,9 +898,8 @@ Alias tương thích:
 ```text
 ctf-codex-workflow
 ctf-codex-wsl
+ctf-codex
 ```
-
-`ctf-codex` là launcher dùng hằng ngày do `ctf-codex-toolkit setup` cài; nó không phải npm bin alias.
 
 `setup` là entry point thông thường. Nó chạy `install` rồi chạy `health`.
 
@@ -1023,8 +1011,8 @@ Thư mục đó trở thành working directory cho Codex.
 Ví dụ:
 
 ```bash
-ctf-codex <challenge>
-ctf-codex <challenge> -Resume
+ctf-codex-toolkit web_login
+ctf-codex-toolkit web_login -Resume
 ```
 
 <a id="cap-nhat-skills"></a>
@@ -1127,7 +1115,7 @@ Trên Kali minimal, `setup` cài và kiểm tra inventory tools trước, gồm 
 
 ### Mô hình an toàn
 
-Pre-tool guard chặn các lệnh automated attack rủi ro cao và broad candidate search, nhưng vẫn cho phép loop nhỏ có tính quyết định. Path containment được canonicalize trước khi so sánh, nên traversal kiểu `..` qua patch/edit/write bị chặn trước khi tool chạy.
+Pre-tool guard chặn các lệnh automated attack rủi ro cao và broad candidate search, nhưng vẫn cho phép loop nhỏ có tính quyết định. Nó cũng đẩy workflow exploit sang kiểu file-based bằng cách chặn HTTP request có payload inline đáng lẽ phải nằm trong `work/exploit.py`, đồng thời chặn đọc trực tiếp các file hệ thống local nhạy cảm nếu chưa encode output trước. Path containment được canonicalize trước khi so sánh, nên traversal kiểu `..` qua patch/edit/write bị chặn trước khi tool chạy.
 
 Đây là defense-in-depth cho lỗi thao tác thường gặp. Nó không phải sandbox, không phải security boundary, và không thay thế việc chạy Codex trong workspace CTF đã scoped. Static script scanning là best-effort: inline `python -c`/`node -e` payload và script files được kiểm tra, nhưng code đưa qua pipe hoặc heredoc không được parse đầy đủ trước khi interpreter start.
 
@@ -1140,6 +1128,8 @@ Regression checks hiện có:
 - `range(2**10)` được cho phép
 - shell `for` loop nhỏ được cho phép
 - `hashcat` bị chặn
+- `curl -d ...` hoặc `curl -H ...` có payload exploit inline bị chặn và được hướng sang `work/exploit.py`
+- `cat /etc/passwd` bị chặn nếu chưa encode output trước
 
 <a id="ghi-chu-supply-chain"></a>
 
