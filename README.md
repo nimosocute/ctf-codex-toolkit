@@ -98,7 +98,7 @@ sudo npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
 
-As of `0.2.1`, the npm package no longer installs a `ctf-codex` binary directly. That name is owned by `ctf-codex-toolkit setup`, which overwrites the old `/usr/local/bin/ctf-codex` launcher every time setup runs.
+As of `0.1.24`, the npm package no longer installs a `ctf-codex` binary directly. That name is owned by `ctf-codex-toolkit setup`, which overwrites the old `/usr/local/bin/ctf-codex` launcher every time setup runs.
 
 If you prefer not to use sudo, use a user-owned npm prefix:
 
@@ -129,7 +129,7 @@ For a pinned global install:
 ```bash
 npm config set prefix ~/.npm-global
 export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g ctf-codex-toolkit@0.2.1
+npm install -g ctf-codex-toolkit@0.1.24
 ctf-codex-toolkit setup
 ```
 
@@ -543,7 +543,7 @@ Current regression checks include:
 Prefer the published npm package for normal installation:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.2.1 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.24 -- ctf-codex-toolkit setup
 ```
 
 The GitHub install form executes repository content directly:
@@ -673,7 +673,7 @@ sudo npm install -g ctf-codex-toolkit
 ctf-codex-toolkit setup
 ```
 
-Từ `0.2.1`, npm package không còn cài trực tiếp binary `ctf-codex`. Tên đó thuộc về `ctf-codex-toolkit setup`, và setup sẽ ghi đè launcher cũ ở `/usr/local/bin/ctf-codex` mỗi lần chạy.
+Từ `0.1.24`, npm package không còn cài trực tiếp binary `ctf-codex`. Tên đó thuộc về `ctf-codex-toolkit setup`, và setup sẽ ghi đè launcher cũ ở `/usr/local/bin/ctf-codex` mỗi lần chạy.
 
 Nếu không muốn dùng sudo, dùng npm prefix nằm trong home của user:
 
@@ -704,7 +704,7 @@ Cài global theo version cố định:
 ```bash
 npm config set prefix ~/.npm-global
 export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g ctf-codex-toolkit@0.2.1
+npm install -g ctf-codex-toolkit@0.1.24
 ctf-codex-toolkit setup
 ```
 
@@ -1138,7 +1138,7 @@ Regression checks hiện có:
 Nên dùng package npm đã publish cho cài đặt thông thường:
 
 ```bash
-npm exec --yes --package ctf-codex-toolkit@0.2.1 -- ctf-codex-toolkit setup
+npm exec --yes --package ctf-codex-toolkit@0.1.24 -- ctf-codex-toolkit setup
 ```
 
 Dạng cài từ GitHub sẽ chạy trực tiếp nội dung repository:
