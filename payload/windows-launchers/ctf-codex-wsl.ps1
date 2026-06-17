@@ -23,7 +23,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ConfigPath = Join-Path $HOME ".ctf-codex-toolkit.json"
-$LauncherVersion = "0.1.24"
+$LauncherVersion = "0.1.25"
 
 function Read-ToolkitConfig {
     if (-not (Test-Path -LiteralPath $ConfigPath)) {
