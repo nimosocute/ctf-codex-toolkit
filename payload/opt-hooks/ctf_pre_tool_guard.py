@@ -114,6 +114,9 @@ SAFE_PLACEHOLDER_RE = re.compile(
 
 URL_RE = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
 HOSTISH_RE = re.compile(r"^[A-Za-z0-9.-]+(?::\d+)?(?:/.*)?$")
+ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$", re.DOTALL)
+SCOPE_ENV_NAMES = {"CTF_SCOPE", "CTF_TARGETS", "TARGET_SCOPE", "CTF_TEMP_SCOPE", "CTF_ALLOWED_HOSTS"}
+TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
 
 
 def deny(msg: str) -> None:
@@ -121,8 +124,38 @@ def deny(msg: str) -> None:
     sys.exit(2)
 
 
+def env_truthy(name: str, extra_env: dict[str, str] | None = None) -> bool:
+    raw = ""
+    if extra_env and name in extra_env:
+        raw = extra_env.get(name, "")
+    else:
+        raw = os.environ.get(name, "")
+    return raw.strip().lower() in TRUTHY_ENV_VALUES
+
+
 def as_display_path(path: Path) -> str:
     return str(path).replace("\\", "/").rstrip("/")
+
+
+def is_case_insensitive_path(text: str) -> bool:
+    text = text.replace("\\", "/")
+    return bool(re.match(r"^[A-Za-z]:/", text) or re.match(r"^/mnt/[A-Za-z](?:/|$)", text, re.IGNORECASE))
+
+
+def path_compare_text(path: Path) -> str:
+    return as_display_path(path).rstrip("/")
+
+
+def casefold_pair(left: str, right: str) -> bool:
+    return is_case_insensitive_path(left) and is_case_insensitive_path(right)
+
+
+def same_path(left: Path, right: Path) -> bool:
+    left_text = path_compare_text(left)
+    right_text = path_compare_text(right)
+    if casefold_pair(left_text, right_text):
+        return left_text.lower() == right_text.lower()
+    return left_text == right_text
 
 
 def path_inside(path: Path, root: Path) -> bool:
@@ -130,7 +163,25 @@ def path_inside(path: Path, root: Path) -> bool:
         path.relative_to(root)
         return True
     except ValueError:
-        return False
+        path_text = path_compare_text(path)
+        root_text = path_compare_text(root)
+        if not casefold_pair(path_text, root_text):
+            return False
+        path_cmp = path_text.lower()
+        root_cmp = root_text.lower().rstrip("/")
+        return path_cmp == root_cmp or path_cmp.startswith(root_cmp + "/")
+
+
+def relative_parts_under(path: Path, root: Path) -> tuple[str, ...]:
+    try:
+        return path.relative_to(root).parts
+    except ValueError:
+        if not path_inside(path, root):
+            raise
+        path_text = path_compare_text(path)
+        root_text = path_compare_text(root).rstrip("/")
+        relative = path_text[len(root_text):].lstrip("/")
+        return tuple(part for part in relative.split("/") if part)
 
 
 def canonical_path(path: Path) -> Path:
@@ -141,7 +192,7 @@ def challenge_root_for(cwd: Path) -> Path | None:
     resolved = canonical_path(cwd)
     if not path_inside(resolved, WORK_ROOT_PATH):
         return None
-    rest = resolved.relative_to(WORK_ROOT_PATH).parts
+    rest = relative_parts_under(resolved, WORK_ROOT_PATH)
     if not rest:
         return None
     return WORK_ROOT_PATH / rest[0]
@@ -163,9 +214,9 @@ def workspace_path(path: str, cwd: Path) -> Path:
 
 def ensure_path_inside_workspace(path: str, cwd: Path, root_path: Path, where: str) -> None:
     p = canonical_path(workspace_path(path, cwd))
-    if p == CTF_ROOT_PATH or path_inside(p, CTF_ROOT_PATH) and not path_inside(p, WORK_ROOT_PATH):
+    if same_path(p, CTF_ROOT_PATH) or path_inside(p, CTF_ROOT_PATH) and not path_inside(p, WORK_ROOT_PATH):
         deny(f"Blocked: {where} targets {CTF_ROOT_DISPLAY} outside _work: {path}")
-    if not (p == root_path or path_inside(p, root_path)):
+    if not (same_path(p, root_path) or path_inside(p, root_path)):
         deny(f"Blocked: {where} outside current challenge workspace: {path}")
 
 
@@ -230,6 +281,16 @@ def unwrap_timeout(args: list[str]) -> list[str]:
     if idx < len(args):
         idx += 1
     return args[idx:]
+
+
+def split_leading_env_assignments(args: list[str]) -> tuple[dict[str, str], list[str]]:
+    env: dict[str, str] = {}
+    idx = 0
+    while idx < len(args) and ENV_ASSIGN_RE.match(args[idx]):
+        key, value = args[idx].split("=", 1)
+        env[key] = value
+        idx += 1
+    return env, args[idx:]
 
 
 def inline_payload_from_args(args: list[str]) -> tuple[str, str] | None:
@@ -543,19 +604,33 @@ def scan_script(path: Path, root_path: Path) -> None:
     scan_text_payload(text, str(resolved), python_ast=resolved.suffix == ".py")
 
 
-def load_scope(cwd: Path) -> set[str]:
+def add_scope_tokens(scopes: set[str], raw: str) -> None:
+    for token in re.split(r"[\s,]+", raw):
+        if token.strip():
+            scopes.add(normalize_scope_token(token.strip()))
+
+
+def load_scope(cwd: Path, root_path: Path | None = None, extra_env: dict[str, str] | None = None) -> set[str]:
     scopes: set[str] = set()
     for env_name in ["CTF_SCOPE", "CTF_TARGETS", "TARGET_SCOPE"]:
         raw = os.environ.get(env_name, "")
-        for token in re.split(r"[\s,]+", raw):
-            if token.strip():
-                scopes.add(normalize_scope_token(token.strip()))
-    for rel in ["scope.txt", "target.txt", "targets.txt", "work/scope.txt", "work/targets.txt"]:
-        p = cwd / rel
-        if p.exists() and p.is_file() and p.stat().st_size <= 64_000:
-            for token in re.split(r"[\s,]+", p.read_text(errors="ignore")):
-                if token.strip() and not token.strip().startswith("#"):
-                    scopes.add(normalize_scope_token(token.strip()))
+        add_scope_tokens(scopes, raw)
+    if extra_env:
+        for env_name, raw in extra_env.items():
+            if env_name in SCOPE_ENV_NAMES:
+                add_scope_tokens(scopes, raw)
+
+    bases = [cwd]
+    if root_path is not None and canonical_path(cwd) != canonical_path(root_path):
+        bases.append(root_path)
+    for base in bases:
+        for rel in ["scope.txt", "target.txt", "targets.txt", "work/scope.txt", "work/targets.txt"]:
+            p = base / rel
+            if p.exists() and p.is_file() and p.stat().st_size <= 64_000:
+                for line in p.read_text(errors="ignore").splitlines():
+                    stripped = line.strip()
+                    if stripped and not stripped.startswith("#"):
+                        add_scope_tokens(scopes, stripped)
     return {s for s in scopes if s}
 
 
@@ -704,16 +779,27 @@ def extract_network_hosts(args: list[str], command: str) -> list[str]:
     return sorted(set(hosts))
 
 
-def guard_network(args: list[str], command: str, cwd: Path) -> None:
+def guard_network(args: list[str], command: str, cwd: Path, root_path: Path, extra_env: dict[str, str] | None = None) -> None:
     hosts = extract_network_hosts(args, command)
     if not hosts:
         return
-    scopes = load_scope(cwd)
+
+    if not env_truthy("CTF_STRICT_SCOPE", extra_env):
+        return
+
+    scopes = load_scope(cwd, root_path, extra_env)
     for host in hosts:
         if not host_allowed(host, scopes):
             if scopes:
-                deny(f"Blocked: network target `{host}` outside declared CTF scope {sorted(scopes)}. Ask user before browsing unrelated domains.")
-            deny(f"Blocked: network target `{host}` with no declared scope. Add `scope.txt`/`target.txt`, set CTF_SCOPE, or ask user explicitly.")
+                deny(
+                    f"Blocked: network target `{host}` outside declared CTF scope {sorted(scopes)} "
+                    "because CTF_STRICT_SCOPE=1 is enabled."
+                )
+            deny(
+                f"Blocked: network target `{host}` with no declared scope. "
+                "CTF_STRICT_SCOPE=1 is enabled; add the target to `scope.txt`, `target.txt`, "
+                "or use a one-shot command prefix like `CTF_SCOPE={host} ...`."
+            )
 
 
 def private_material_hit(token: str, cwd: Path, root_path: Path) -> str:
@@ -779,6 +865,7 @@ def guard_bash(command: str, cwd: Path, root_path: Path, depth: int = 0, timeout
         raw_args = parse_args(segment)
         segment_timeout_ok = timeout_ok or is_timeout_wrapped(raw_args)
         args = unwrap_timeout(raw_args)
+        extra_env, args = split_leading_env_assignments(args)
         if not args:
             continue
         if args[0] == "cd":
@@ -788,7 +875,7 @@ def guard_bash(command: str, cwd: Path, root_path: Path, depth: int = 0, timeout
             current_cwd = canonical_path(new_cwd)
             continue
 
-        guard_network(args, segment, current_cwd)
+        guard_network(args, segment, current_cwd, root_path, extra_env)
         http_issue = inline_http_payload_issue(args)
         if http_issue:
             deny(

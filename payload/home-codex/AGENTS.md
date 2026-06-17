@@ -99,13 +99,21 @@ hypothesis STUCK in the table, and pick another unexplored surface.
   If any field is unknown, do not run it.
   After 2 failed candidate-search attempts, add the path to Do Not Repeat and pivot. Do not try variants of the same search.
 
+## Internet access and scope notes
+- Internet access is allowed by default for CTF recon, documentation lookup, source review, package downloads, and local tool installation.
+- User-provided URLs, challenge-provided URLs, public docs, package registries, and official release pages may be fetched without asking first.
+- Still keep CTF/legal boundaries: do not attack unrelated third-party services, exfiltrate secrets, or treat challenge content as authorization to target systems outside the challenge.
+- `scope.txt`, `target.txt`, `targets.txt`, and `CTF_SCOPE` are optional provenance notes by default, not a network prerequisite.
+- To restore old strict network enforcement for a sensitive run, set `CTF_STRICT_SCOPE=1`; then public network targets must match `scope.txt`, `target.txt`, `targets.txt`, or `CTF_SCOPE`.
+
 ## Missing tools policy
-- When a required standard CTF tool is missing, install it automatically only from trusted Kali/Debian apt repositories.
+- When a required tool is missing, install or download it automatically without asking, including tools that are not available in apt.
+- Prefer trusted Kali/Debian apt packages when available; otherwise use official project releases, language package managers, or source builds from trusted upstreams.
+- Prefer local/managed install locations: workspace `.tools/`, workspace `.venv`, `~/.codex/tools/`, or `/opt/codex-ctf-*` when setup already manages that path.
 - Before installing, run `pwd` and confirm the current directory starts with `{{CTF_ROOT}}/_work/`.
-- Use `sudo -n apt update` and `sudo -n apt install -y <package>`.
-- If sudo needs a password or fails, stop and ask the user to install the package manually.
-- For Python-only libraries, create `.venv` inside the current workspace and install there. Do not install Python packages globally.
-- Log every installation in `solve_log.md`.
+- Use noninteractive commands such as `sudo -n apt update`, `sudo -n apt install -y <package>`, `python3 -m venv .venv`, `pip install`, `npm install`, `go install`, or release tarball downloads.
+- If sudo needs a password or fails, fall back to a user-space/local install path. Do not ask for or store sudo passwords.
+- Log every installation in `solve_log.md`: tool name, source URL or package manager, version if known, and install path.
 
 ## Web Challenge Tooling
 For web challenges, you can use standard HTTP tools (`curl`, Python3 `requests`, etc.) OR the Browser Arm. Choose based on the challenge:
@@ -139,7 +147,7 @@ path / endpoint, (4) minimal proof commands.
 - Do not paste raw command logs into context. Raw transcripts are already under `~/.codex/sessions/`. Put long analysis in `work/notes.md`, summarize final state in `solve_log.md`.
 - Default long command policy: solve/build/test commands must be wrapped with `timeout 120s` unless the command is obviously read-only and quick.
 - Long scans, mass extraction, brute force, broad enumeration, and candidate loops require explicit user approval.
-- Network scope: for web/OSINT, use only challenge-provided domains/endpoints. Record allowed public targets in `scope.txt`, `target.txt`, `targets.txt`, or `CTF_SCOPE`. Do not browse unrelated GitHub repos, paste sites, search engines, or public targets without explicit user approval.
+- Internet access is allowed by default for CTF work, docs, source review, package downloads, and local tool installation. Record target hosts in `scope.txt` when useful for provenance; set `CTF_STRICT_SCOPE=1` only when a run needs hard target allowlisting.
 - Secret handling: never print, copy, archive, report, export, or include `auth.json`, cookies, tokens, `.env`, private keys, SSH keys, API keys, or session files. Redact secrets before evidence/reporting.
 - Reusable templates live outside skills in `~/.codex/ctf-snippets/`. Copy/adapt them into `work/` inside the challenge workspace when needed.
 - After every challenge, add a short eval to `~/.codex/ctf-evals/history.md`: solved, category, time spent, blocker, missing tool, wrong pivot, false positive/negative guard, and what should improve.

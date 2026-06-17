@@ -57,6 +57,7 @@ function usage() {
 Usage:
   ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
   ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
+  ctf-codex-toolkit uninstall [--remove-tools] [--remove-workspaces --yes] [--ctf-root <path>]
   ctf-codex-toolkit install-tools
   ctf-codex-toolkit health
   ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
@@ -267,11 +268,161 @@ function installWindowsLaunchersFromWsl() {
   console.log(`[+] wrote ${shortcutPath}`);
 }
 
+function uninstallWindowsLaunchersFromWsl(dryRun = false) {
+  if (!isWsl()) return;
+  if (!commandExists("powershell.exe")) return;
+
+  const script = [
+    "$targets = @(",
+    "  (Join-Path $env:USERPROFILE '.ctf-codex-toolkit.json'),",
+    "  (Join-Path $env:USERPROFILE 'ctf-codex-wsl.ps1'),",
+    "  (Join-Path $env:USERPROFILE 'ctf-codex-wsl.cmd'),",
+    "  (Join-Path ([Environment]::GetFolderPath('Desktop')) 'CTF Codex WSL.lnk')",
+    ")",
+    "foreach ($target in $targets) {",
+    "  if (-not $target) { continue }",
+    dryRun
+      ? "  if (Test-Path -LiteralPath $target) { Write-Output \"[dry-run] would remove $target\" }"
+      : "  if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force; Write-Output \"[+] removed $target\" }",
+    "}"
+  ].join("; ");
+
+  run("powershell.exe", [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-Command",
+    script
+  ]);
+}
+
 function runPrivilegedBash(script) {
   if (typeof process.getuid === "function" && process.getuid() === 0) {
     return run("bash", ["-lc", script]);
   }
   return run("sudo", ["bash", "-lc", script]);
+}
+
+function pathExistsForRemoval(target) {
+  try {
+    fs.lstatSync(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removePath(target, dryRun = false) {
+  if (!pathExistsForRemoval(target)) return;
+  if (dryRun) {
+    console.log(`[dry-run] would remove ${target}`);
+    return;
+  }
+  fs.rmSync(target, { recursive: true, force: true });
+  console.log(`[+] removed ${target}`);
+}
+
+function uninstallRootFiles(removeTools, dryRun = false) {
+  const baseTargets = [
+    "/usr/local/bin/ctf-codex",
+    "/opt/codex-ctf-hooks",
+    "/etc/profile.d/ctf-codex-tools.sh"
+  ];
+  const toolTargets = [
+    "/opt/codex-ctf-python",
+    "/opt/codex-ctf-sage",
+    "/opt/oss-cad-suite"
+  ];
+
+  if (dryRun) {
+    for (const target of baseTargets) console.log(`[dry-run] would remove ${target}`);
+    if (removeTools) {
+      for (const target of toolTargets) console.log(`[dry-run] would remove ${target}`);
+      console.log("[dry-run] would remove /usr/local/bin/pwn and /usr/local/bin/sage only if they point into /opt/codex-ctf-*");
+    }
+    return;
+  }
+
+  const removeToolsValue = removeTools ? "1" : "0";
+  const script = `
+set -euo pipefail
+rm -f /usr/local/bin/ctf-codex
+rm -rf /opt/codex-ctf-hooks
+rm -f /etc/profile.d/ctf-codex-tools.sh
+if [ ${shellQuote(removeToolsValue)} = "1" ]; then
+  for link in /usr/local/bin/pwn /usr/local/bin/sage; do
+    if [ -L "$link" ]; then
+      target="$(readlink "$link" || true)"
+      case "$target" in
+        /opt/codex-ctf-*/*) rm -f "$link" ;;
+      esac
+    fi
+  done
+  rm -rf /opt/codex-ctf-python /opt/codex-ctf-sage /opt/oss-cad-suite
+fi
+`;
+  runPrivilegedBash(script);
+  console.log("[+] removed privileged toolkit files");
+}
+
+function assertSafeWorkspaceRootRemoval(ctfRoot) {
+  const resolved = path.resolve(ctfRoot);
+  const root = path.parse(resolved).root;
+  const home = path.resolve(os.homedir());
+  if (resolved === root || resolved === home || resolved.length < root.length + 4) {
+    fail(`Refusing to remove unsafe CTF root: ${resolved}`);
+  }
+  return resolved;
+}
+
+function uninstall(args) {
+  ensureUnix();
+  const dryRun = hasFlag(args, "--dry-run");
+  const yes = hasFlag(args, "--yes") || hasFlag(args, "-y");
+  const purge = hasFlag(args, "--purge");
+  const removeTools = purge || hasFlag(args, "--remove-tools");
+  const removeWorkspaces = purge || hasFlag(args, "--remove-workspaces");
+  const ctfRoot = resolveCtfRoot(args);
+  const codexHome = path.join(os.homedir(), ".codex");
+
+  if ((removeTools || removeWorkspaces) && !yes && !dryRun) {
+    fail("Refusing destructive uninstall without --yes. Re-run with --yes, or omit --remove-tools/--remove-workspaces.");
+  }
+
+  console.log("[+] Uninstalling CTF Codex Toolkit payload");
+  removePath(path.join(codexHome, "AGENTS.md"), dryRun);
+  removePath(path.join(codexHome, "ctf-checklists.md"), dryRun);
+  removePath(path.join(codexHome, "tools_inventory.md"), dryRun);
+  removePath(path.join(codexHome, "ctf-snippets"), dryRun);
+  removePath(path.join(codexHome, "tools", "ctf_health_check.py"), dryRun);
+  removePath(path.join(codexHome, "tools", "browser_arm"), dryRun);
+
+  const skillsDir = path.join(codexHome, "skills");
+  if (fs.existsSync(skillsDir)) {
+    for (const name of fs.readdirSync(skillsDir)) {
+      if (name.startsWith("ctf-") || name === "solve-challenge") {
+        removePath(path.join(skillsDir, name), dryRun);
+      }
+    }
+  }
+
+  const hooksDir = path.join(codexHome, "hooks");
+  for (const name of ["ctf_pre_tool_guard.py", "ctf_post_tool_guard.py", "ctf_stop_guard.py"]) {
+    removePath(path.join(hooksDir, name), dryRun);
+  }
+
+  removePath(CONFIG_PATH, dryRun);
+  uninstallWindowsLaunchersFromWsl(dryRun);
+  uninstallRootFiles(removeTools, dryRun);
+
+  if (removeWorkspaces) {
+    if (!ctfRoot) {
+      fail("Cannot remove workspaces without a saved root or --ctf-root <path>.");
+    }
+    removePath(assertSafeWorkspaceRootRemoval(ctfRoot), dryRun);
+  }
+
+  console.log("[+] Uninstall complete. Preserved ~/.codex/auth.json, ~/.codex/sessions, and ~/.codex/config.toml.");
 }
 
 function installBrowserArm() {
@@ -579,6 +730,7 @@ function main() {
   const [cmd, ...rest] = args;
   if (cmd === "setup") return setup(rest);
   if (cmd === "install") return install(rest);
+  if (cmd === "uninstall") return uninstall(rest);
   if (cmd === "install-tools") return installInventoryTools(rest);
   if (cmd === "health") return health();
   if (cmd === "update-skills") return updateSkills(rest);

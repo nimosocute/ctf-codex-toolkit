@@ -113,6 +113,17 @@ if (packageJson.bin && Object.prototype.hasOwnProperty.call(packageJson.bin, "ct
   console.error("npm package must not install a ctf-codex bin; setup owns /usr/local/bin/ctf-codex");
   process.exit(1);
 }
+const cliSource = fs.readFileSync(path.join(root, "bin/ctf-codex-toolkit.js"), "utf8");
+if (
+  !cliSource.includes("function uninstall(") ||
+  !cliSource.includes('cmd === "uninstall"') ||
+  !cliSource.includes("--remove-workspaces") ||
+  !cliSource.includes(".ctf-codex-toolkit.json") ||
+  !cliSource.includes("Preserved ~/.codex/auth.json")
+) {
+  console.error("CLI must expose a safe uninstall command that preserves Codex auth/session state");
+  process.exit(1);
+}
 
 const windowsLauncher = fs.readFileSync(path.join(root, "payload/windows-launchers/ctf-codex-wsl.ps1"), "utf8");
 const agentsPolicy = fs.readFileSync(path.join(root, "payload/home-codex/AGENTS.md"), "utf8");
@@ -176,6 +187,14 @@ if (!agentsPolicy.includes("contextual fuzzing") || !agentsPolicy.includes("rabb
   console.error("Global AGENTS policy must mention contextual fuzzing and rabbit-hole handling");
   process.exit(1);
 }
+if (!agentsPolicy.includes("CTF_STRICT_SCOPE=1") || !agentsPolicy.includes("tools that are not available in apt")) {
+  console.error("Global AGENTS policy must allow default internet access, strict scope opt-in, and non-apt local tools");
+  process.exit(1);
+}
+if (!windowsLauncher.includes("CTF_STRICT_SCOPE=1") || !windowsLauncher.includes("tools not available in apt")) {
+  console.error("Windows launcher workspace AGENTS must allow default internet access and non-apt local tools");
+  process.exit(1);
+}
 
 const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-codex-toolkit.js"), "--help"], {
   encoding: "utf8"
@@ -183,7 +202,8 @@ const help = childProcess.spawnSync(process.execPath, [path.join(root, "bin/ctf-
 if (
   help.status !== 0 ||
   !help.stdout.includes("ctf-codex-toolkit setup") ||
-  !help.stdout.includes("ctf-codex-toolkit install")
+  !help.stdout.includes("ctf-codex-toolkit install") ||
+  !help.stdout.includes("ctf-codex-toolkit uninstall")
 ) {
   console.error(help.stdout);
   console.error(help.stderr);
@@ -192,20 +212,37 @@ if (
 
 const python = process.env.PYTHON || "python";
 const hookPath = path.join(root, "payload/opt-hooks/ctf_pre_tool_guard.py");
+const stopHookPath = path.join(root, "payload/opt-hooks/ctf_stop_guard.py");
 const guardTmp = fs.mkdtempSync(path.join(os.tmpdir(), "ctf-guard-"));
 const ctfRoot = path.join(guardTmp, "ctf");
 const challengeRoot = path.join(ctfRoot, "_work", "chal");
 fs.mkdirSync(challengeRoot, { recursive: true });
 
-function runGuard(event) {
+function runGuard(event, extraEnv = {}) {
   return childProcess.spawnSync(python, [hookPath], {
     cwd: challengeRoot,
     env: {
       ...process.env,
       CTF_ROOT: ctfRoot,
-      CTF_WORK_ROOT: path.join(ctfRoot, "_work")
+      CTF_WORK_ROOT: path.join(ctfRoot, "_work"),
+      ...extraEnv
     },
     input: JSON.stringify(event),
+    encoding: "utf8"
+  });
+}
+
+function runStopHook(cwd) {
+  return childProcess.spawnSync(python, [stopHookPath], {
+    cwd,
+    env: {
+      ...process.env,
+      CTF_ROOT: ctfRoot,
+      CTF_WORK_ROOT: path.join(ctfRoot, "_work"),
+      HOME: path.join(guardTmp, "home"),
+      USERPROFILE: path.join(guardTmp, "home")
+    },
+    input: JSON.stringify({ cwd }),
     encoding: "utf8"
   });
 }
@@ -235,6 +272,23 @@ if (safePatch.status !== 0) {
   console.error("pre-tool guard rejected a safe workspace patch");
   console.error(safePatch.stdout);
   console.error(safePatch.stderr);
+  process.exit(1);
+}
+
+const wslCaseMismatchPatch = runGuard({
+  tool_name: "apply_patch",
+  cwd: "/mnt/d/CTF/_work/chal",
+  tool_input: {
+    command: "*** Begin Patch\n*** Add File: work/case-note.txt\n+ok\n*** End Patch\n"
+  }
+}, {
+  CTF_ROOT: "/mnt/d/ctf",
+  CTF_WORK_ROOT: "/mnt/d/ctf/_work"
+});
+if (wslCaseMismatchPatch.status !== 0) {
+  console.error("pre-tool guard should tolerate casing differences on WSL Windows mounts such as /mnt/d/ctf vs /mnt/d/CTF");
+  console.error(wslCaseMismatchPatch.stdout);
+  console.error(wslCaseMismatchPatch.stderr);
   process.exit(1);
 }
 
@@ -291,6 +345,116 @@ if (encodedSensitiveRead.status !== 0) {
   console.error("pre-tool guard should allow encoded sensitive file reads");
   console.error(encodedSensitiveRead.stdout);
   console.error(encodedSensitiveRead.stderr);
+  process.exit(1);
+}
+
+const unscopedNetworkAllowed = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "curl -s https://raw.githubusercontent.com/nimosocute/ctf-codex-toolkit/main/README.md"
+  }
+});
+if (unscopedNetworkAllowed.status !== 0) {
+  console.error("pre-tool guard should allow internet access by default without declared scope");
+  console.error(unscopedNetworkAllowed.stdout);
+  console.error(unscopedNetworkAllowed.stderr);
+  process.exit(1);
+}
+
+const strictUnscopedNetwork = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "curl -s https://raw.githubusercontent.com/nimosocute/ctf-codex-toolkit/main/README.md"
+  }
+}, { CTF_STRICT_SCOPE: "1" });
+if (strictUnscopedNetwork.status === 0 || !`${strictUnscopedNetwork.stderr}${strictUnscopedNetwork.stdout}`.includes("CTF_STRICT_SCOPE=1")) {
+  console.error("pre-tool guard should enforce declared scope only when CTF_STRICT_SCOPE=1");
+  console.error(strictUnscopedNetwork.stdout);
+  console.error(strictUnscopedNetwork.stderr);
+  process.exit(1);
+}
+
+const scopedInlineNetwork = runGuard({
+  tool_name: "Bash",
+  cwd: challengeRoot,
+  tool_input: {
+    command: "CTF_STRICT_SCOPE=1 CTF_SCOPE=raw.githubusercontent.com curl -s https://raw.githubusercontent.com/nimosocute/ctf-codex-toolkit/main/README.md"
+  }
+});
+if (scopedInlineNetwork.status !== 0) {
+  console.error("pre-tool guard should allow one-shot CTF_SCOPE under strict scope mode");
+  console.error(scopedInlineNetwork.stdout);
+  console.error(scopedInlineNetwork.stderr);
+  process.exit(1);
+}
+
+const nestedWorkDir = path.join(challengeRoot, "work");
+fs.mkdirSync(nestedWorkDir, { recursive: true });
+fs.writeFileSync(path.join(challengeRoot, "scope.txt"), "raw.githubusercontent.com\n");
+const rootScopeFromNestedCwd = runGuard({
+  tool_name: "Bash",
+  cwd: nestedWorkDir,
+  tool_input: {
+    command: "curl -s https://raw.githubusercontent.com/nimosocute/ctf-codex-toolkit/main/README.md"
+  }
+}, { CTF_STRICT_SCOPE: "1" });
+if (rootScopeFromNestedCwd.status !== 0) {
+  console.error("pre-tool guard should load root workspace scope.txt from nested working directories under strict scope mode");
+  console.error(rootScopeFromNestedCwd.stdout);
+  console.error(rootScopeFromNestedCwd.stderr);
+  process.exit(1);
+}
+
+const waitingLog = [
+  "# solve_log",
+  "## Known facts",
+  "- Blocker: no artifact, no URL, no host, and no port provided yet.",
+  "## Hypotheses",
+  "| id | surface | hypothesis | next test | finding | status |",
+  "| H1 | input | user must provide challenge artifact or URL | ask user for input | no target available | STUCK |",
+  "## Failed paths / Do Not Repeat",
+  "- Do not fabricate target scope or scan unrelated hosts.",
+  "## Next best test",
+  "- Waiting for user input."
+].join("\n");
+fs.writeFileSync(path.join(challengeRoot, "solve_log.md"), waitingLog + "\n");
+for (let i = 0; i < 4; i += 1) {
+  const waitingResult = runStopHook(challengeRoot);
+  if (waitingResult.status !== 0 || `${waitingResult.stdout}${waitingResult.stderr}`.includes("findings/hypothesis signal has not changed")) {
+    console.error("stop hook should not block repeated stops when solve_log records a real missing-input blocker");
+    console.error(waitingResult.stdout);
+    console.error(waitingResult.stderr);
+    process.exit(1);
+  }
+}
+
+const staleRoot = path.join(ctfRoot, "_work", "stale");
+fs.mkdirSync(staleRoot, { recursive: true });
+const staleLog = [
+  "# solve_log",
+  "## Known facts",
+  "- Endpoint responds, but current hypothesis has not changed.",
+  "## Hypotheses",
+  "| id | surface | hypothesis | next test | finding | status |",
+  "| H1 | web | route may expose flag | repeat same request | same result | active |",
+  "## Failed paths / Do Not Repeat",
+  "- None yet.",
+  "## Next best test",
+  "- Repeat same request."
+].join("\n");
+fs.writeFileSync(path.join(staleRoot, "solve_log.md"), staleLog + "\n");
+let staleResult = null;
+for (let i = 0; i < 3; i += 1) {
+  staleResult = runStopHook(staleRoot);
+}
+if (!staleResult || !`${staleResult.stdout}${staleResult.stderr}`.includes("findings/hypothesis signal has not changed")) {
+  console.error("stop hook should still block genuinely stale non-waiting solve logs");
+  if (staleResult) {
+    console.error(staleResult.stdout);
+    console.error(staleResult.stderr);
+  }
   process.exit(1);
 }
 

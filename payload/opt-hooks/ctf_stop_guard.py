@@ -11,6 +11,15 @@ WORK_ROOT = (os.environ.get("CTF_WORK_ROOT") or f"{CTF_ROOT}/_work").replace("\\
 STATE_DIR = Path.home() / ".codex" / "ctf-evals"
 STATE_PATH = STATE_DIR / "stop_state.json"
 NO_FINDING_LIMIT = 3
+WAITING_INPUT_RE = re.compile(
+    r"\b("
+    r"waiting for user|needs user input|need user input|awaiting input|blocked by missing input|"
+    r"no artifact|no attachment|no challenge file|no url|no host|no port|no endpoint|no scope|"
+    r"missing artifact|missing url|missing host|missing port|missing endpoint|missing scope|"
+    r"no declared scope|ask the user|ask user|requires user"
+    r")\b",
+    re.I,
+)
 
 
 def continue_with(reason: str) -> None:
@@ -55,6 +64,13 @@ def signal_from_log(text: str) -> str:
     return hashlib.sha256("\n".join(keep).encode()).hexdigest()
 
 
+def waiting_for_external_input(text: str) -> bool:
+    low = text.lower()
+    if not WAITING_INPUT_RE.search(low):
+        return False
+    return any(term in low for term in ["next best test", "blocker", "blocked", "stuck", "waiting"])
+
+
 raw = sys.stdin.read()
 try:
     event = json.loads(raw) if raw.strip() else {}
@@ -62,7 +78,7 @@ except Exception:
     event = {}
 
 cwd = Path(event.get("cwd") or os.getcwd())
-cwd_lower = str(cwd).lower()
+cwd_lower = str(cwd).replace("\\", "/").lower()
 
 if event.get("stop_hook_active"):
     ok()
@@ -102,6 +118,14 @@ if missing:
 signal = signal_from_log(text)
 state = load_state()
 entry = state.setdefault(str(cwd), {"signal": "", "unchanged": 0})
+if waiting_for_external_input(text):
+    entry["signal"] = signal
+    entry["unchanged"] = 0
+    entry["waiting_for_input"] = True
+    save_state(state)
+    ok()
+
+entry["waiting_for_input"] = False
 if entry.get("signal") == signal:
     entry["unchanged"] = int(entry.get("unchanged", 0)) + 1
 else:

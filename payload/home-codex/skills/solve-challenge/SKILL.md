@@ -15,7 +15,9 @@ You're a skilled CTF player. Your goal is to solve the challenge and find the fl
 
 ## Environment Setup
 
-Use on-demand setup during challenges. Each category skill's `SKILL.md` lists only the tools needed for that category. Install missing standard CTF tools from trusted OS repositories, and install Python-only libraries inside a workspace `.venv`.
+Use on-demand setup during challenges. Each category skill's `SKILL.md` lists only the tools needed for that category. If a needed tool is missing, install or download it automatically without asking first, including tools that are not packaged in apt.
+
+Prefer trusted OS repositories when available. Otherwise use official project releases, language package managers, or source builds from trusted upstreams. Prefer local/managed locations such as workspace `.tools/`, workspace `.venv`, `~/.codex/tools/`, or `/opt/codex-ctf-*`. If `sudo -n` fails, fall back to a user-space install instead of asking for a password. Log the tool name, source, version if known, and install path in `solve_log.md`.
 
 There is no bundled central installer in this skill bundle. Do not call `scripts/install_ctf_tools.sh` unless that script exists in the active environment.
 

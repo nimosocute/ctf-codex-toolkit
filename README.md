@@ -61,7 +61,7 @@ This repository packages the operational pieces needed to run Codex as a CTF ass
 | --- | --- |
 | Codex CTF policy | Managed `AGENTS.md`, category routing, workflow guidance |
 | Skills | Web, pwn, crypto, reverse, forensics, OSINT, malware, AI/ML, misc, solve dispatcher, writeup |
-| Guard hooks | Pre-tool checks for broad scans, high-risk commands, oversized candidate loops, and inline exploit payloads that should move into `work/exploit.py` |
+| Guard hooks | Pre-tool checks for broad scans, high-risk commands, oversized candidate loops, inline exploit payloads that should move into `work/exploit.py`, and optional strict network scope via `CTF_STRICT_SCOPE=1` |
 | Health checks | One-shot environment inventory for CTF tools, providers, Browser Arm, hooks |
 | CTF tools | Required bootstrap for the tools listed in `tools_inventory.md` |
 | Browser support | Optional isolated Browser Arm venv using pinned `cloakbrowser==0.3.31` |
@@ -273,7 +273,7 @@ Setup performs five jobs:
 4. Prepare optional helper environments, including Browser Arm unless skipped.
 5. In Kali WSL only, install the Windows launcher files and Desktop shortcut.
 
-The tool install is required by default. It uses Kali apt first, then fallback installers for inventory tools that are commonly absent from minimal Kali:
+The tool install is required by default. It uses Kali apt first, then fallback installers for inventory tools that are commonly absent from minimal Kali. During challenge work, the managed policy also allows Codex to install or download missing local tools automatically without asking first, including tools that are not packaged in apt. It should prefer trusted upstreams and local/managed paths such as workspace `.tools/`, workspace `.venv`, `~/.codex/tools/`, and `/opt/codex-ctf-*`.
 
 - `/opt/codex-ctf-python` venv for Python CTF libraries when apt packages are missing.
 - `/opt/oss-cad-suite` for `yosys` and `bitwuzla`.
@@ -296,6 +296,7 @@ Global install inside Kali is recommended for regular use, because it makes all 
 ```text
 ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
+ctf-codex-toolkit uninstall [--remove-tools] [--remove-workspaces --yes] [--ctf-root <path>]
 ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
@@ -337,6 +338,15 @@ Install or repair only the tool inventory later:
 ```bash
 ctf-codex-toolkit install-tools
 ```
+
+Uninstall the managed toolkit payload and reset a bad root selection:
+
+```bash
+ctf-codex-toolkit uninstall
+ctf-codex-toolkit setup --ctf-root ~/ctf-workspaces --skip-tools --skip-health
+```
+
+`uninstall` preserves `~/.codex/auth.json`, `~/.codex/sessions`, and `~/.codex/config.toml`. Add `--remove-tools --yes` to remove managed tool directories such as `/opt/codex-ctf-python`, `/opt/codex-ctf-sage`, and `/opt/oss-cad-suite`. Add `--remove-workspaces --yes --ctf-root <path>` only when you intentionally want to delete the CTF root and all challenge workspaces under it.
 
 Use `--no-browser-arm` to skip Browser Arm entirely:
 
@@ -524,6 +534,8 @@ On minimal Kali, `setup` installs and verifies the inventory tools first, includ
 
 The pre-tool guard blocks high-risk automated attack commands and broad candidate searches while allowing small deterministic loops. It also nudges exploit automation toward file-based execution by rejecting inline HTTP payload requests that should live in `work/exploit.py`, and it blocks direct local reads of sensitive system files unless they are encoded first. Path containment checks canonicalize paths before comparison, so `..` traversal through patch/edit/write targets is rejected before tools run.
 
+Internet access is open by default for CTF recon, docs, source review, package downloads, and local tool installation. `scope.txt`, `target.txt`, `targets.txt`, and `CTF_SCOPE` are kept as optional provenance notes. If you want the older hard allowlist behavior for a sensitive run, launch with `CTF_STRICT_SCOPE=1`; then the pre-tool guard blocks public network targets that do not match the declared scope files or env vars.
+
 This is defense-in-depth for common mistakes. It is not a sandbox, not a security boundary, and not a substitute for running Codex inside a scoped CTF workspace. Static script scanning is best-effort: inline `python -c`/`node -e` payloads and script files are inspected, but code supplied through pipes or heredocs is not fully parsed before interpreter startup.
 
 Current regression checks include:
@@ -537,6 +549,8 @@ Current regression checks include:
 - `hashcat` blocked
 - inline `curl -d ...` or `curl -H ...` exploit payloads blocked and redirected to `work/exploit.py`
 - direct `cat /etc/passwd` blocked unless the command encodes the output first
+- public `curl https://...` allowed by default
+- public network commands blocked only when `CTF_STRICT_SCOPE=1` and the target is not declared
 
 ## Supply Chain Notes
 
@@ -634,7 +648,7 @@ Repo này đóng gói các phần cần thiết để chạy Codex như một tr
 | --- | --- |
 | Chính sách Codex CTF | `AGENTS.md` được quản lý, định tuyến category, hướng dẫn workflow |
 | Skills | Web, pwn, crypto, reverse, forensics, OSINT, malware, AI/ML, misc, solve dispatcher, writeup |
-| Guard hooks | Kiểm tra trước khi chạy tool để chặn scan rộng, lệnh rủi ro cao, vòng lặp candidate quá lớn, và payload exploit inline nên chuyển vào `work/exploit.py` |
+| Guard hooks | Kiểm tra trước khi chạy tool để chặn scan rộng, lệnh rủi ro cao, vòng lặp candidate quá lớn, payload exploit inline nên chuyển vào `work/exploit.py`, và strict network scope tùy chọn qua `CTF_STRICT_SCOPE=1` |
 | Health checks | Kiểm tra nhanh payload, tools, provider readiness, Browser Arm, hooks |
 | CTF tools | Bootstrap các tool trong `tools_inventory.md` |
 | Browser support | Browser Arm tùy chọn, dùng venv riêng với `cloakbrowser==0.3.31` |
@@ -854,7 +868,7 @@ Setup làm năm việc:
 4. Chuẩn bị helper environment tùy chọn, gồm Browser Arm nếu không tắt.
 5. Chỉ trong Kali WSL, cài Windows launcher files và Desktop shortcut.
 
-Mặc định setup sẽ cài tool inventory. Nó dùng apt của Kali trước, sau đó dùng fallback installer cho những tool hay thiếu trên Kali minimal:
+Mặc định setup sẽ cài tool inventory. Nó dùng apt của Kali trước, sau đó dùng fallback installer cho những tool hay thiếu trên Kali minimal. Khi đang làm challenge, policy quản lý cũng cho phép Codex tự cài hoặc tải tool local còn thiếu mà không hỏi trước, kể cả tool không có trong apt. Agent nên ưu tiên upstream đáng tin cậy và các vị trí local/managed như workspace `.tools/`, workspace `.venv`, `~/.codex/tools/`, và `/opt/codex-ctf-*`.
 
 - `/opt/codex-ctf-python` venv cho Python CTF libraries khi apt thiếu package.
 - `/opt/oss-cad-suite` cho `yosys` và `bitwuzla`.
@@ -879,6 +893,7 @@ Cài global trong Kali là cách khuyến nghị nếu dùng thường xuyên, v
 ```text
 ctf-codex-toolkit setup [--ctf-root <path>] [--no-browser-arm] [--skip-tools] [--skip-health]
 ctf-codex-toolkit install [--ctf-root <path>] [--no-browser-arm] [--skip-tools]
+ctf-codex-toolkit uninstall [--remove-tools] [--remove-workspaces --yes] [--ctf-root <path>]
 ctf-codex-toolkit install-tools
 ctf-codex-toolkit health
 ctf-codex-toolkit update-skills [--source https://github.com/ljagiello/ctf-skills.git]
@@ -920,6 +935,15 @@ Cài hoặc sửa riêng tool inventory sau:
 ```bash
 ctf-codex-toolkit install-tools
 ```
+
+Gỡ payload toolkit được quản lý và reset root bị chọn sai:
+
+```bash
+ctf-codex-toolkit uninstall
+ctf-codex-toolkit setup --ctf-root ~/ctf-workspaces --skip-tools --skip-health
+```
+
+`uninstall` giữ lại `~/.codex/auth.json`, `~/.codex/sessions`, và `~/.codex/config.toml`. Thêm `--remove-tools --yes` nếu muốn xóa các thư mục tool do toolkit quản lý như `/opt/codex-ctf-python`, `/opt/codex-ctf-sage`, và `/opt/oss-cad-suite`. Chỉ dùng `--remove-workspaces --yes --ctf-root <path>` khi thật sự muốn xóa CTF root cùng toàn bộ workspace challenge bên trong.
 
 Bỏ qua Browser Arm hoàn toàn:
 
@@ -1117,6 +1141,8 @@ Trên Kali minimal, `setup` cài và kiểm tra inventory tools trước, gồm 
 
 Pre-tool guard chặn các lệnh automated attack rủi ro cao và broad candidate search, nhưng vẫn cho phép loop nhỏ có tính quyết định. Nó cũng đẩy workflow exploit sang kiểu file-based bằng cách chặn HTTP request có payload inline đáng lẽ phải nằm trong `work/exploit.py`, đồng thời chặn đọc trực tiếp các file hệ thống local nhạy cảm nếu chưa encode output trước. Path containment được canonicalize trước khi so sánh, nên traversal kiểu `..` qua patch/edit/write bị chặn trước khi tool chạy.
 
+Internet mặc định được mở cho CTF recon, tra cứu tài liệu, review source, tải package, và cài tool local. `scope.txt`, `target.txt`, `targets.txt`, và `CTF_SCOPE` chỉ là ghi chú provenance mặc định. Nếu muốn quay về hành vi allowlist cứng cho môi trường nhạy cảm, chạy với `CTF_STRICT_SCOPE=1`; khi đó pre-tool guard sẽ chặn public network target không nằm trong scope đã khai báo.
+
 Đây là defense-in-depth cho lỗi thao tác thường gặp. Nó không phải sandbox, không phải security boundary, và không thay thế việc chạy Codex trong workspace CTF đã scoped. Static script scanning là best-effort: inline `python -c`/`node -e` payload và script files được kiểm tra, nhưng code đưa qua pipe hoặc heredoc không được parse đầy đủ trước khi interpreter start.
 
 Regression checks hiện có:
@@ -1130,6 +1156,8 @@ Regression checks hiện có:
 - `hashcat` bị chặn
 - `curl -d ...` hoặc `curl -H ...` có payload exploit inline bị chặn và được hướng sang `work/exploit.py`
 - `cat /etc/passwd` bị chặn nếu chưa encode output trước
+- public `curl https://...` được cho phép mặc định
+- public network command chỉ bị chặn khi `CTF_STRICT_SCOPE=1` và target chưa được khai báo
 
 <a id="ghi-chu-supply-chain"></a>
 
