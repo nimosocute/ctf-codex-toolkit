@@ -162,6 +162,14 @@ if (
   process.exit(1);
 }
 if (
+  !windowsLauncher.includes("function Read-ToolkitUpdateChoice") ||
+  !windowsLauncher.includes("Use Up/Down arrows, then Enter") ||
+  windowsLauncher.includes("choose 1/2/3")
+) {
+  console.error("Windows launcher update prompt must use an arrow-key menu instead of a typed-only prompt");
+  process.exit(1);
+}
+if (
   windowsLauncher.includes('node - "$current" "$latest"') ||
   !windowsLauncher.includes('CURRENT="$current" LATEST="$latest" node') ||
   !windowsLauncher.includes("process.env.CURRENT") ||

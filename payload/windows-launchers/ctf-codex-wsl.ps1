@@ -47,6 +47,87 @@ function Write-ToolkitConfig {
     }
 }
 
+function Convert-ToolkitUpdateChoice {
+    param([string]$Choice)
+
+    if ([string]::IsNullOrWhiteSpace($Choice)) { return "update" }
+    if ($Choice -match '^(1|u|update)$') { return "update" }
+    if ($Choice -match '^(3|until|skip until next version)$') { return "skip-until" }
+    return "skip"
+}
+
+function Read-ToolkitUpdateChoice {
+    $Esc = [char]27
+    $Options = @(
+        @{ Value = "update"; Label = "Update now"; Detail = "(refresh toolkit payload and launchers)" },
+        @{ Value = "skip"; Label = "Skip"; Detail = "" },
+        @{ Value = "skip-until"; Label = "Skip until next version"; Detail = "" }
+    )
+
+    $UseFallback = $false
+    try {
+        $UseFallback = [Console]::IsInputRedirected -or [Console]::IsOutputRedirected
+    } catch {
+        $UseFallback = $true
+    }
+
+    if (-not $UseFallback) {
+        try {
+            $Selected = 0
+            Write-Host "$Esc[90mUse Up/Down arrows, then Enter. Press 1/2/3 as shortcuts.$Esc[0m"
+            $MenuTop = [Console]::CursorTop
+
+            while ($true) {
+                [Console]::SetCursorPosition(0, $MenuTop)
+                for ($Index = 0; $Index -lt $Options.Count; $Index += 1) {
+                    $Option = $Options[$Index]
+                    $Prefix = if ($Index -eq $Selected) { ">" } else { " " }
+                    $Detail = if ($Option.Detail) { " $($Option.Detail)" } else { "" }
+                    $Line = "$Prefix $($Index + 1). $($Option.Label)$Detail"
+                    [Console]::Write("$Esc[2K")
+                    if ($Index -eq $Selected) {
+                        Write-Host "$Esc[96m$Line$Esc[0m"
+                    } else {
+                        Write-Host $Line
+                    }
+                }
+                [Console]::Write("$Esc[2K")
+
+                $Key = [Console]::ReadKey($true)
+                if ($Key.Key -eq [ConsoleKey]::UpArrow) {
+                    $Selected = ($Selected + $Options.Count - 1) % $Options.Count
+                    continue
+                }
+                if ($Key.Key -eq [ConsoleKey]::DownArrow) {
+                    $Selected = ($Selected + 1) % $Options.Count
+                    continue
+                }
+                if ($Key.Key -eq [ConsoleKey]::Enter) {
+                    Write-Host ""
+                    return $Options[$Selected].Value
+                }
+                if ($Key.Key -eq [ConsoleKey]::Escape) {
+                    Write-Host ""
+                    return "skip"
+                }
+                if ($Key.KeyChar -match '^[123]$') {
+                    Write-Host ""
+                    return Convert-ToolkitUpdateChoice ([string]$Key.KeyChar)
+                }
+            }
+        } catch {
+            $UseFallback = $true
+        }
+    }
+
+    Write-Host "$Esc[96m> 1. Update now$Esc[0m $Esc[90m(refresh toolkit payload and launchers)$Esc[0m"
+    Write-Host "  2. Skip"
+    Write-Host "  3. Skip until next version"
+    Write-Host ""
+    $Choice = Read-Host "Press Enter to update, or type 1/2/3"
+    return Convert-ToolkitUpdateChoice $Choice
+}
+
 if (-not $Distro) { $Distro = "kali-linux" }
 $WSL_DISTRO = $Distro
 
@@ -126,14 +207,9 @@ fi
     Write-Host ""
     Write-Host "$Esc[90mRelease notes: https://github.com/nimosocute/ctf-codex-toolkit/releases/latest$Esc[0m"
     Write-Host ""
-    Write-Host "$Esc[96m> 1. Update now$Esc[0m $Esc[90m(runs ``npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools``)$Esc[0m"
-    Write-Host "  2. Skip"
-    Write-Host "  3. Skip until next version"
-    Write-Host ""
-    $Choice = Read-Host "Press enter to update, or choose 1/2/3"
-    if ([string]::IsNullOrWhiteSpace($Choice)) { $Choice = "1" }
+    $Choice = Read-ToolkitUpdateChoice
 
-    if ($Choice -match '^(1|u|update)$') {
+    if ($Choice -eq "update") {
         Write-Host "[+] Updating CTF Codex Toolkit to $LatestVersion..."
         & wsl.exe -d $Distro -- bash -lc "npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools"
         if ($LASTEXITCODE -ne 0) {
@@ -141,7 +217,7 @@ fi
             exit $LASTEXITCODE
         }
         Write-Host "[+] Update complete. Continuing launcher..."
-    } elseif ($Choice -match '^(3|until|skip until next version)$') {
+    } elseif ($Choice -eq "skip-until") {
         $Config | Add-Member -NotePropertyName "skippedToolkitVersion" -NotePropertyValue $LatestVersion -Force
         Write-ToolkitConfig $Config
         Write-Host "[=] Skipped toolkit update until a version newer than $LatestVersion is available."
