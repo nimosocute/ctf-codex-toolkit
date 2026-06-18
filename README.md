@@ -35,11 +35,38 @@ Kali shell
   -> codex inside Kali
 ```
 
+## Quick Start
+
+Install inside Kali or Kali WSL:
+
+```bash
+sudo npm install -g ctf-codex-toolkit
+ctf-codex-toolkit setup
+```
+
+Start a challenge:
+
+```bash
+ctf-codex bachdeptrai
+```
+
+Common maintenance:
+
+| Task | Command |
+| --- | --- |
+| Manual update | `npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools` |
+| Reinstall CTF tools only | `ctf-codex-toolkit install-tools` |
+| Recreate Windows shortcut only | `ctf-codex-toolkit install-launchers` |
+| Safe uninstall | `ctf-codex-toolkit uninstall` |
+
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [What This Project Provides](#what-this-project-provides)
 - [Install](#install)
 - [Daily Usage](#daily-usage)
+- [Manual Update](#manual-update)
+- [Uninstall](#uninstall)
 - [Requirements](#requirements)
 - [How It Works](#how-it-works)
 - [Command Reference](#command-reference)
@@ -195,10 +222,58 @@ On native Kali, the equivalent command is:
 ctf-codex bachdeptrai
 ```
 
-To update the Kali payload and Windows shortcut later:
+For manual updates and shortcut update behavior, see [Manual Update](#manual-update).
+
+## Manual Update
+
+The Windows shortcut checks the published npm `latest` version before it asks for a challenge name. If a newer version exists, it offers to update first, then continues into the normal launcher flow.
+
+To update manually after a global install:
+
+```bash
+npm install -g ctf-codex-toolkit@latest
+ctf-codex-toolkit setup --skip-health --skip-tools
+```
+
+One-shot update without relying on the currently installed package:
 
 ```bash
 npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools
+```
+
+Repair optional pieces separately when needed:
+
+```bash
+ctf-codex-toolkit install-tools
+ctf-codex-toolkit install-launchers
+```
+
+`setup --skip-health --skip-tools` refreshes the Codex payload, hooks, launchers, and saved toolkit version without reinstalling the full CTF tool inventory.
+
+## Uninstall
+
+Safe uninstall removes only the managed toolkit payload:
+
+```bash
+ctf-codex-toolkit uninstall
+```
+
+It preserves your Codex identity and history:
+
+- `~/.codex/auth.json`
+- `~/.codex/sessions`
+- `~/.codex/config.toml`
+
+Remove managed tool directories too:
+
+```bash
+ctf-codex-toolkit uninstall --remove-tools --yes
+```
+
+Remove the CTF root and all challenge workspaces only when you intentionally want a full wipe:
+
+```bash
+ctf-codex-toolkit uninstall --remove-workspaces --yes --ctf-root ~/ctf-workspaces
 ```
 
 ## Requirements
@@ -339,14 +414,7 @@ Install or repair only the tool inventory later:
 ctf-codex-toolkit install-tools
 ```
 
-Uninstall the managed toolkit payload and reset a bad root selection:
-
-```bash
-ctf-codex-toolkit uninstall
-ctf-codex-toolkit setup --ctf-root ~/ctf-workspaces --skip-tools --skip-health
-```
-
-`uninstall` preserves `~/.codex/auth.json`, `~/.codex/sessions`, and `~/.codex/config.toml`. Add `--remove-tools --yes` to remove managed tool directories such as `/opt/codex-ctf-python`, `/opt/codex-ctf-sage`, and `/opt/oss-cad-suite`. Add `--remove-workspaces --yes --ctf-root <path>` only when you intentionally want to delete the CTF root and all challenge workspaces under it.
+For uninstall flows, see [Uninstall](#uninstall).
 
 Use `--no-browser-arm` to skip Browser Arm entirely:
 
@@ -360,7 +428,9 @@ Use `install-launchers` inside Kali WSL to recreate only the Windows launcher fi
 ctf-codex-toolkit install-launchers
 ```
 
-When the Windows shortcut is launched from Kali WSL, it checks the published npm `latest` version. If a newer toolkit version is available, the launcher prompts:
+For manual update and shortcut update behavior, see [Manual Update](#manual-update).
+
+If a newer toolkit version is available, the Windows shortcut prompts:
 
 ```text
 Update available! <current> -> <latest>
@@ -369,8 +439,6 @@ Update available! <current> -> <latest>
   2. Skip
   3. Skip until next version
 ```
-
-Choosing update refreshes the toolkit payload, launchers, and saved toolkit version in Kali WSL, then continues launching the challenge. It skips the full CTF tool inventory install; run `ctf-codex-toolkit install-tools` when you want to repair or reinstall tools. The Windows launcher has its own embedded `LauncherVersion`, so stale shortcut files are detected even if the WSL config already contains a newer toolkit version.
 
 If Codex fails before opening, the Windows launcher keeps the console open and prints the WSL exit code. Common causes are Codex CLI not installed inside Kali, `codex` missing from the WSL `PATH`, or a bad WSL distro name.
 
@@ -620,11 +688,40 @@ Kali shell
   -> Codex chạy bên trong Kali
 ```
 
+<a id="bat-dau-nhanh"></a>
+
+### Bắt đầu nhanh
+
+Cài trong Kali hoặc Kali WSL:
+
+```bash
+sudo npm install -g ctf-codex-toolkit
+ctf-codex-toolkit setup
+```
+
+Mở một challenge:
+
+```bash
+ctf-codex bachdeptrai
+```
+
+Bảo trì thường gặp:
+
+| Việc cần làm | Lệnh |
+| --- | --- |
+| Cập nhật thủ công | `npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools` |
+| Cài lại riêng tool CTF | `ctf-codex-toolkit install-tools` |
+| Tạo lại riêng shortcut Windows | `ctf-codex-toolkit install-launchers` |
+| Gỡ an toàn | `ctf-codex-toolkit uninstall` |
+
 ### Mục lục
 
+- [Bắt đầu nhanh](#bat-dau-nhanh)
 - [Toolkit cung cấp gì](#toolkit-cung-cap-gi)
 - [Cài đặt](#cai-dat)
 - [Sử dụng hằng ngày](#su-dung-hang-ngay)
+- [Cập nhật thủ công](#cap-nhat-thu-cong)
+- [Gỡ cài đặt](#go-cai-dat)
 - [Yêu cầu](#yeu-cau)
 - [Cách hoạt động](#cach-hoat-dong)
 - [Lệnh thường dùng](#lenh-thuong-dung)
@@ -786,10 +883,62 @@ Trên Kali native, lệnh tương đương là:
 ctf-codex bachdeptrai
 ```
 
-Khi cần cập nhật payload Kali và Windows shortcut:
+Xem cách cập nhật tay và hành vi update của shortcut ở [Cập nhật thủ công](#cap-nhat-thu-cong).
+
+<a id="cap-nhat-thu-cong"></a>
+
+### Cập nhật thủ công
+
+Windows shortcut sẽ kiểm tra version `latest` trên npm trước khi hỏi tên challenge. Nếu có bản mới hơn, shortcut hỏi bạn có muốn cập nhật trước hay không, rồi mới tiếp tục mở challenge.
+
+Cập nhật thủ công sau khi đã cài global:
+
+```bash
+npm install -g ctf-codex-toolkit@latest
+ctf-codex-toolkit setup --skip-health --skip-tools
+```
+
+Cập nhật one-shot, không phụ thuộc package đang cài sẵn:
 
 ```bash
 npm exec --yes --package ctf-codex-toolkit@latest -- ctf-codex-toolkit setup --skip-health --skip-tools
+```
+
+Sửa hoặc cài lại riêng các phần tùy chọn khi cần:
+
+```bash
+ctf-codex-toolkit install-tools
+ctf-codex-toolkit install-launchers
+```
+
+`setup --skip-health --skip-tools` cập nhật payload Codex, hooks, launchers, và version đã lưu, nhưng không cài lại toàn bộ CTF tool inventory.
+
+<a id="go-cai-dat"></a>
+
+### Gỡ cài đặt
+
+Gỡ an toàn chỉ xóa payload toolkit được quản lý:
+
+```bash
+ctf-codex-toolkit uninstall
+```
+
+Lệnh này giữ lại định danh và lịch sử Codex của bạn:
+
+- `~/.codex/auth.json`
+- `~/.codex/sessions`
+- `~/.codex/config.toml`
+
+Xóa luôn các thư mục tool do toolkit quản lý:
+
+```bash
+ctf-codex-toolkit uninstall --remove-tools --yes
+```
+
+Chỉ xóa CTF root và toàn bộ workspace challenge khi bạn thật sự muốn dọn sạch hoàn toàn:
+
+```bash
+ctf-codex-toolkit uninstall --remove-workspaces --yes --ctf-root ~/ctf-workspaces
 ```
 
 <a id="yeu-cau"></a>
@@ -936,14 +1085,7 @@ Cài hoặc sửa riêng tool inventory sau:
 ctf-codex-toolkit install-tools
 ```
 
-Gỡ payload toolkit được quản lý và reset root bị chọn sai:
-
-```bash
-ctf-codex-toolkit uninstall
-ctf-codex-toolkit setup --ctf-root ~/ctf-workspaces --skip-tools --skip-health
-```
-
-`uninstall` giữ lại `~/.codex/auth.json`, `~/.codex/sessions`, và `~/.codex/config.toml`. Thêm `--remove-tools --yes` nếu muốn xóa các thư mục tool do toolkit quản lý như `/opt/codex-ctf-python`, `/opt/codex-ctf-sage`, và `/opt/oss-cad-suite`. Chỉ dùng `--remove-workspaces --yes --ctf-root <path>` khi thật sự muốn xóa CTF root cùng toàn bộ workspace challenge bên trong.
+Xem các luồng gỡ chi tiết ở [Gỡ cài đặt](#go-cai-dat).
 
 Bỏ qua Browser Arm hoàn toàn:
 
@@ -957,7 +1099,9 @@ Trong Kali WSL, tạo lại riêng Windows launcher files và Desktop shortcut:
 ctf-codex-toolkit install-launchers
 ```
 
-Khi chạy Windows shortcut từ Kali WSL, launcher kiểm tra version `latest` trên npm. Nếu có bản mới hơn, nó hiện:
+Xem cập nhật tay và hành vi shortcut ở [Cập nhật thủ công](#cap-nhat-thu-cong).
+
+Nếu có bản toolkit mới hơn, Windows shortcut sẽ hiện:
 
 ```text
 Update available! <current> -> <latest>
@@ -966,8 +1110,6 @@ Update available! <current> -> <latest>
   2. Skip
   3. Skip until next version
 ```
-
-Chọn update sẽ cập nhật payload, launcher, và version đã lưu trong Kali WSL, rồi tiếp tục mở challenge. Nó bỏ qua cài lại full CTF inventory; dùng `ctf-codex-toolkit install-tools` khi muốn sửa hoặc cài lại tools. Windows launcher có `LauncherVersion` riêng, nên shortcut cũ vẫn bị phát hiện ngay cả khi config WSL đã ghi version toolkit mới hơn.
 
 Nếu Codex không mở được, Windows launcher giữ console và in WSL exit code. Nguyên nhân thường gặp là Codex CLI chưa cài trong Kali, `codex` không có trong WSL `PATH`, hoặc sai tên WSL distro.
 
