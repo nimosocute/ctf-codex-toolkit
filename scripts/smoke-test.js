@@ -164,9 +164,12 @@ if (
 if (
   !windowsLauncher.includes("function Read-ToolkitUpdateChoice") ||
   !windowsLauncher.includes("Use Up/Down arrows, then Enter") ||
-  windowsLauncher.includes("choose 1/2/3")
+  windowsLauncher.includes("choose 1/2/3") ||
+  windowsLauncher.includes("type 1/2/3") ||
+  windowsLauncher.includes("KeyChar -match") ||
+  windowsLauncher.includes("1. Update now")
 ) {
-  console.error("Windows launcher update prompt must use an arrow-key menu instead of a typed-only prompt");
+  console.error("Windows launcher update prompt must use an arrow-key menu without 1/2/3 hotkeys");
   process.exit(1);
 }
 if (

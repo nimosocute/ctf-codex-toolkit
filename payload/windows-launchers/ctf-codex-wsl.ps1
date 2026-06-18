@@ -47,15 +47,6 @@ function Write-ToolkitConfig {
     }
 }
 
-function Convert-ToolkitUpdateChoice {
-    param([string]$Choice)
-
-    if ([string]::IsNullOrWhiteSpace($Choice)) { return "update" }
-    if ($Choice -match '^(1|u|update)$') { return "update" }
-    if ($Choice -match '^(3|until|skip until next version)$') { return "skip-until" }
-    return "skip"
-}
-
 function Read-ToolkitUpdateChoice {
     $Esc = [char]27
     $Options = @(
@@ -74,7 +65,7 @@ function Read-ToolkitUpdateChoice {
     if (-not $UseFallback) {
         try {
             $Selected = 0
-            Write-Host "$Esc[90mUse Up/Down arrows, then Enter. Press 1/2/3 as shortcuts.$Esc[0m"
+            Write-Host "$Esc[90mUse Up/Down arrows, then Enter.$Esc[0m"
             $MenuTop = [Console]::CursorTop
 
             while ($true) {
@@ -83,7 +74,7 @@ function Read-ToolkitUpdateChoice {
                     $Option = $Options[$Index]
                     $Prefix = if ($Index -eq $Selected) { ">" } else { " " }
                     $Detail = if ($Option.Detail) { " $($Option.Detail)" } else { "" }
-                    $Line = "$Prefix $($Index + 1). $($Option.Label)$Detail"
+                    $Line = "$Prefix $($Option.Label)$Detail"
                     [Console]::Write("$Esc[2K")
                     if ($Index -eq $Selected) {
                         Write-Host "$Esc[96m$Line$Esc[0m"
@@ -110,22 +101,23 @@ function Read-ToolkitUpdateChoice {
                     Write-Host ""
                     return "skip"
                 }
-                if ($Key.KeyChar -match '^[123]$') {
-                    Write-Host ""
-                    return Convert-ToolkitUpdateChoice ([string]$Key.KeyChar)
-                }
             }
         } catch {
             $UseFallback = $true
         }
     }
 
-    Write-Host "$Esc[96m> 1. Update now$Esc[0m $Esc[90m(refresh toolkit payload and launchers)$Esc[0m"
-    Write-Host "  2. Skip"
-    Write-Host "  3. Skip until next version"
+    Write-Host "$Esc[96m> Update now$Esc[0m $Esc[90m(refresh toolkit payload and launchers)$Esc[0m"
+    Write-Host "  Skip"
+    Write-Host "  Skip until next version"
     Write-Host ""
-    $Choice = Read-Host "Press Enter to update, or type 1/2/3"
-    return Convert-ToolkitUpdateChoice $Choice
+    while ($true) {
+        $Choice = Read-Host "Type update, skip, or skip-until"
+        if ([string]::IsNullOrWhiteSpace($Choice) -or $Choice -match '^(u|update)$') { return "update" }
+        if ($Choice -match '^(s|skip)$') { return "skip" }
+        if ($Choice -match '^(skip-until|until|skip until next version)$') { return "skip-until" }
+        Write-Host "[!] Please type update, skip, or skip-until."
+    }
 }
 
 if (-not $Distro) { $Distro = "kali-linux" }

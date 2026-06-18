@@ -435,12 +435,12 @@ If a newer toolkit version is available, the Windows shortcut prompts:
 ```text
 Update available! <current> -> <latest>
 
-> 1. Update now
-  2. Skip
-  3. Skip until next version
+> Update now
+  Skip
+  Skip until next version
 ```
 
-Use Up/Down arrows, then Enter. Press `1`/`2`/`3` as shortcuts.
+Use Up/Down arrows, then Enter.
 
 If Codex fails before opening, the Windows launcher keeps the console open and prints the WSL exit code. Common causes are Codex CLI not installed inside Kali, `codex` missing from the WSL `PATH`, or a bad WSL distro name.
 
@@ -1108,12 +1108,12 @@ Nếu có bản toolkit mới hơn, Windows shortcut sẽ hiện:
 ```text
 Update available! <current> -> <latest>
 
-> 1. Update now
-  2. Skip
-  3. Skip until next version
+> Update now
+  Skip
+  Skip until next version
 ```
 
-Dùng phím mũi tên lên/xuống rồi Enter. Vẫn có thể bấm nhanh `1`/`2`/`3`.
+Dùng phím mũi tên lên/xuống rồi Enter.
 
 Nếu Codex không mở được, Windows launcher giữ console và in WSL exit code. Nguyên nhân thường gặp là Codex CLI chưa cài trong Kali, `codex` không có trong WSL `PATH`, hoặc sai tên WSL distro.
 
