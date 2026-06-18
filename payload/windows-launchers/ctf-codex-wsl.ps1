@@ -23,7 +23,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ConfigPath = Join-Path $HOME ".ctf-codex-toolkit.json"
-$LauncherVersion = "0.1.26"
+$LauncherVersion = "__PACKAGE_VERSION__"
 
 function Read-ToolkitConfig {
     if (-not (Test-Path -LiteralPath $ConfigPath)) {
@@ -58,11 +58,11 @@ function Invoke-ToolkitUpdateCheck {
 
     $CheckScript = @'
 set -euo pipefail
-current="$1"
+current="__LAUNCHER_VERSION__"
 latest="$(npm view ctf-codex-toolkit version 2>/dev/null || true)"
-should_update="$(node - "$current" "$latest" <<'NODE'
-const current = process.argv[2] || '0.0.0';
-const latest = process.argv[3] || '';
+should_update="$(CURRENT="$current" LATEST="$latest" node <<'NODE'
+const current = process.env.CURRENT || '0.0.0';
+const latest = process.env.LATEST || '';
 function parts(version) {
   const match = String(version).trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
   return match ? match.slice(1, 4).map(Number) : null;
@@ -82,10 +82,30 @@ if [ "$should_update" = "yes" ]; then
 fi
 '@
 
+    if ($LauncherVersion -notmatch '^v?\d+\.\d+\.\d+(?:[-+][A-Za-z0-9_.-]+)?$') {
+        return
+    }
+    $CheckScript = $CheckScript.Replace("__LAUNCHER_VERSION__", $LauncherVersion)
+
+    $CheckScriptPath = $null
     try {
-        $Result = (& wsl.exe -d $Distro -- bash -lc $CheckScript -- $LauncherVersion 2>$null).Trim()
+        $CheckScriptPath = Join-Path ([System.IO.Path]::GetTempPath()) ("ctf-codex-update-check-" + [guid]::NewGuid().ToString("N") + ".sh")
+        $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($CheckScriptPath, $CheckScript.Replace("`r", ""), $Utf8NoBom)
+        $CheckScriptFullPath = [System.IO.Path]::GetFullPath($CheckScriptPath)
+        if ($CheckScriptFullPath -notmatch '^([A-Za-z]):\\(.*)$') {
+            return
+        }
+        $drive = $Matches[1].ToLowerInvariant()
+        $tail = $Matches[2] -replace '\\', '/'
+        $CheckScriptWsl = "/mnt/$drive/$tail"
+        $Result = (& wsl.exe -d $Distro -- bash $CheckScriptWsl 2>$null).Trim()
     } catch {
         return
+    } finally {
+        if ($CheckScriptPath -and (Test-Path -LiteralPath $CheckScriptPath)) {
+            Remove-Item -LiteralPath $CheckScriptPath -Force -ErrorAction SilentlyContinue
+        }
     }
 
     if (-not $Result -or -not $Result.Contains("|")) { return }

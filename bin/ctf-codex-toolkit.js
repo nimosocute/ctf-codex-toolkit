@@ -237,7 +237,11 @@ function installWindowsLaunchersFromWsl() {
   const ps1Target = path.join(windowsProfileWsl, "ctf-codex-wsl.ps1");
   const cmdTarget = path.join(windowsProfileWsl, "ctf-codex-wsl.cmd");
 
-  copyFile(path.join(sourceDir, "ctf-codex-wsl.ps1"), ps1Target, 0o644);
+  const ps1Source = fs.readFileSync(path.join(sourceDir, "ctf-codex-wsl.ps1"), "utf8")
+    .replaceAll("__PACKAGE_VERSION__", PACKAGE_VERSION);
+  fs.mkdirSync(path.dirname(ps1Target), { recursive: true });
+  fs.writeFileSync(ps1Target, ps1Source);
+  fs.chmodSync(ps1Target, 0o644);
   copyFile(path.join(sourceDir, "ctf-codex-wsl.cmd"), cmdTarget, 0o644);
   console.log(`[+] wrote ${ps1Target}`);
   console.log(`[+] wrote ${cmdTarget}`);

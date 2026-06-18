@@ -134,8 +134,40 @@ if (!windowsLauncher.includes("$CTF_ROOT  = Resolve-WindowsFullPath $CtfRoot")) 
   console.error("Windows launcher must resolve CTF root to an absolute path before deriving _work paths");
   process.exit(1);
 }
-if (!windowsLauncher.includes('$LauncherVersion = "') || !windowsLauncher.includes("Invoke-ToolkitUpdateCheck -Distro $WSL_DISTRO -LauncherVersion $LauncherVersion")) {
-  console.error("Windows launcher must compare its embedded launcher version during update checks");
+if (
+  !windowsLauncher.includes('$LauncherVersion = "__PACKAGE_VERSION__"') ||
+  !windowsLauncher.includes("Invoke-ToolkitUpdateCheck -Distro $WSL_DISTRO -LauncherVersion $LauncherVersion") ||
+  !cliSource.includes('replaceAll("__PACKAGE_VERSION__", PACKAGE_VERSION)')
+) {
+  console.error("Windows launcher must compare the package-injected launcher version during update checks");
+  process.exit(1);
+}
+if (
+  windowsLauncher.includes('current="$1"') ||
+  windowsLauncher.includes("bash -lc $CheckScript -- $LauncherVersion") ||
+  windowsLauncher.includes("bash -lc $CheckScript") ||
+  !windowsLauncher.includes('current="__LAUNCHER_VERSION__"') ||
+  !windowsLauncher.includes('$CheckScript = $CheckScript.Replace("__LAUNCHER_VERSION__", $LauncherVersion)')
+) {
+  console.error("Windows launcher update check must not rely on bash -lc positional args through wsl.exe");
+  process.exit(1);
+}
+if (
+  !windowsLauncher.includes("ctf-codex-update-check-") ||
+  !windowsLauncher.includes("[System.IO.File]::WriteAllText($CheckScriptPath") ||
+  !windowsLauncher.includes("bash $CheckScriptWsl") ||
+  !windowsLauncher.includes("Remove-Item -LiteralPath $CheckScriptPath")
+) {
+  console.error("Windows launcher update check must run through a temporary shell script to avoid wsl.exe quoting loss");
+  process.exit(1);
+}
+if (
+  windowsLauncher.includes('node - "$current" "$latest"') ||
+  !windowsLauncher.includes('CURRENT="$current" LATEST="$latest" node') ||
+  !windowsLauncher.includes("process.env.CURRENT") ||
+  !windowsLauncher.includes("process.env.LATEST")
+) {
+  console.error("Windows launcher update check must pass versions to node through env vars to survive wsl.exe quoting");
   process.exit(1);
 }
 if (!windowsLauncher.includes("function Quote-BashArgument") || !windowsLauncher.includes("Quote-BashArgument $GuardPathWsl")) {
