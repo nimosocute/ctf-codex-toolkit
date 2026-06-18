@@ -174,13 +174,13 @@ Desktop\CTF Codex WSL.lnk
 When prompted, type a challenge name such as:
 
 ```text
-bachcube
+bachdeptrai
 ```
 
 The launcher finds or creates:
 
 ```text
-<ctf-root>/_work/bachcube
+<ctf-root>/_work/bachdeptrai
 ```
 
 It then starts Codex inside that workspace. To continue an earlier Codex conversation, use Codex's built-in command inside the Codex session:
@@ -192,7 +192,7 @@ It then starts Codex inside that workspace. To continue an earlier Codex convers
 On native Kali, the equivalent command is:
 
 ```bash
-ctf-codex bachcube
+ctf-codex bachdeptrai
 ```
 
 To update the Kali payload and Windows shortcut later:
@@ -765,13 +765,13 @@ Desktop\CTF Codex WSL.lnk
 Khi được hỏi, nhập tên bài, ví dụ:
 
 ```text
-bachcube
+bachdeptrai
 ```
 
 Launcher sẽ tìm hoặc tạo:
 
 ```text
-<ctf-root>/_work/bachcube
+<ctf-root>/_work/bachdeptrai
 ```
 
 Sau đó launcher mở Codex ngay trong workspace đó. Nếu muốn quay lại đoạn chat trước trong Codex, dùng lệnh có sẵn của Codex trong phiên Codex:
@@ -783,7 +783,7 @@ Sau đó launcher mở Codex ngay trong workspace đó. Nếu muốn quay lại 
 Trên Kali native, lệnh tương đương là:
 
 ```bash
-ctf-codex bachcube
+ctf-codex bachdeptrai
 ```
 
 Khi cần cập nhật payload Kali và Windows shortcut:
